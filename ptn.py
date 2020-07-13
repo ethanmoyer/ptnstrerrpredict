@@ -46,20 +46,21 @@ class ptn:
 
 		# If a file is given in place of id, load the file and set the id equal to the id in the file name.
 		if isfileandnotempty(info):
+			# ethan: avoid regexp, only record file. id and file are disjoint
+			
 			p.loc = info
-			file_with_ext = os.path.split(info)[len(re.findall('/', info))]
-			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', file_with_ext)
+			#file_with_ext = os.path.split(info)[len(re.findall('/', info))]
+			#info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', file_with_ext)
 
-			p.id = info.group('id')
-			p.chain = info.group('chain')
+			#p.id = info.group('id')
+			#p.chain = info.group('chain')
 
 			# Used for subsetting the residues
-			p.fromres = int(info.group('fromres'))
-			p.tores = int(info.group('tores'))
+			#p.fromres = int(info.group('fromres'))
+			#p.tores = int(info.group('tores'))
 
 		else:
 			# 1crnA 5-10'
-			p.info = info
 			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
 
 			p.id = info.group('id')
@@ -95,7 +96,7 @@ class ptn:
 			elif '.cif' in p.loc:
 				parser = MMCIFParser()
 
-			p.protein_ = parser.get_structure(p.id, p.loc)
+			p.protein_ = parser.get_structure('id', p.loc)
 
 			# If chain is not given, use all of them. Otherwise, use given.
 			if p.chain == None:
@@ -154,7 +155,7 @@ class ptn:
 			for atom in a['atoms']: 
 				atom_id = atom.get_id()
 
-				# If the atom ID is either 'CA', 'CB', 'C', or 'N,' store thier coordinates
+				# If the atom ID is either 'CA', 'CB', 'C', or 'N,' store their coordinates
 				if atom_id in ['CA', 'N', 'C', 'CB']:
 					a[atom_id] = atom.get_coord()
 
@@ -251,6 +252,7 @@ class ptn:
 			file = tempfile.NamedTemporaryFile(dir = 'tempfiles', mode = 'w+', suffix='.pdb').name
 		
 		# Open file and loop through all of the atoms in the protein and print all of their information to the file.
+		# ethan: only write PDB files after structure is updated from the subsetting done, i.e. range of aa or chains
 		with open(file, "w+") as f:
 			for aa in p.aa():
 			
@@ -260,9 +262,11 @@ class ptn:
 					y = atom_coords[1]
 					z = atom_coords[2]
 					atom_name = atom.get_name()
-					# pdb file format fprintf(fid, 'ATOM   %4d %-4s %s %s%5s   %8.3f%8.3f%8.3f  1.00  1.00		   %s  \n', atomi, atomname, upper(a.resname), chain, ptn_num2icoded(resseqs(i)), X(j,1), X(j,2), X(j,3),a.AtomName(1));
-					out = 'ATOM   %4d %-4s %s %s%5s   %8.3f%8.3f%8.3f  1.00  1.00		 %s  \n' % (atom_number, atom_name, aa['resseq'].get_resname(), aa['chain'], amino_acid_number, x, y, z, atom_name[:1])
+					# pdb file format fprintf(fid, 'ATOM   %4d %-4s %s %s%5s   %8.3f%8.3f%8.3f  1.00  1.00           %s  \n', ... atomi, upper(a.resname), chain, ptn_num2icoded(resseqs(i)), X(i,1), X(i,2), X(i,3);
+					out = 'ATOM  %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n' % (atom_number, atom_name, aa['resseq'].get_resname(), aa['chain'], amino_acid_number, x, y, z, atom_name[:1])
 
+#'ATOM  %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n'
+			
 					f.write(out)
 					
 					atom_number += 1
@@ -335,7 +339,7 @@ class ptn:
 		# Empty 3D window 
 		logical_mat = np.zeros((a, a, a))
 
-		# Initialze a x a x a grid of points with objects for storing data
+		# Initialize a x a x a grid of points with objects for storing data
 		mat = [[[grid_point() for i in range(a)] for j in range(a)] for j in range(a)]
 
 		atom_number = 0
@@ -390,6 +394,7 @@ class ptn:
 			score, file = p_.pyrossetta_energy_calculation(file)
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
 			p_.save_data(mat, score, file)
+
 
 	# Generate random data by messing up the original protein structure, calculating the energy using pyrosseta, and rotating it a random amount. Then save the mse between the contact map of the native and decoy structure and matrix the data directory.
 	def generate_decoy_messup_mse_mat(p, fdir, n = 10):
@@ -485,16 +490,16 @@ def load_files(id_, fdir = 'ptndata/'):
 id = '1crnA0-10'
 p = ptn(id)
 
-p.generate_decoy_messup_mse_mat('ptndata0/', 100)
+for p_decoy in load_files(id):
+	mat = p_decoy.ptn2grid(p_decoy.aa())
+	score = p_decoy.mse_contact_calc(p_native)
+	p_decoy.save_data(mat, score, file = file, energy_file = fdir + 'mse_distand_matrix')
 
 
 # Below is script
 if (False):
 
-	for p_decoy in load_files(id):
-		mat = p_decoy.ptn2grid(p_decoy.aa())
-		score = p_decoy.mse_contact_calc(p_native)
-		p_decoy.save_data(mat, score, file = file, energy_file = fdir + 'mse_distand_matrix')
+	p.generate_decoy_messup_mse_mat('ptndata0/', 100)
 
 	ids = pd.read_csv('training.txt').values
 

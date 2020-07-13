@@ -28,6 +28,15 @@ BACTH_SIZE = 16
 # Features per object
 FEATURES_PER_GRID_POINT = 1
 
+def grid2logical(mat):
+	a = len(mat)
+	logical_mat = np.zeros((a, a, a))
+	for i in range(len(mat)):
+		for j in range(len(mat[0])):
+			for k in range(len(mat[0][0])):
+				logical_mat[i, j, k] = mat[i][j][k].existence
+	return logical_mat
+
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
@@ -62,7 +71,7 @@ class cnn:
 		return model
 
 # Path name for storing all of the data
-fdir = 'ptndata/'
+fdir = 'ptndata0/'
 
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -74,7 +83,7 @@ feature_set = []
 for file in files:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
-	feature_set.append(np.reshape(entry.mat, (CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 1)))
+	feature_set.append(np.reshape(grid2logical(entry.mat), (CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 1)))
 
 # Load energy scores from csv and sort them according to file name
 energy_scores = pd.read_csv(fdir + 'energy.csv')
@@ -91,11 +100,11 @@ if (True):
 	cnn = cnn()
 	model = cnn.generate_model(input_shape)
 
-	history = model.fit(X_train, y_train, epochs = 100, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 10, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
-	data.to_csv('data/data_1crnA0-10.csv')
+	data.to_csv('cnn_cont_data/1crnA0-10.csv')
 
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
@@ -104,7 +113,7 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	savefig('cnn0_1crnA0-10_abs_loss.png')
+	savefig('cnn_cont_data/cnn0_1crnA0-10_abs_loss.png')
 
 	plt.plot(history.history['loss'] / np.mean(y_train))
 	plt.plot(history.history['val_loss'] / np.mean(y_test))
