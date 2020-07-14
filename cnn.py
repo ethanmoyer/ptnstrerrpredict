@@ -59,7 +59,7 @@ class cnn:
 		model.add(Dense(32, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
 
-		model.add(Dropout(0.2))
+		model.add(Dropout(0.5))
 		model.add(Flatten())
 		model.add(Dense(1))
 
@@ -71,7 +71,7 @@ class cnn:
 		return model
 
 # Path name for storing all of the data
-fdir = 'ptndata0/'
+fdir = 'ptndata/'
 
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -104,7 +104,7 @@ if (True):
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
-	data.to_csv('cnn_cont_data/1crnA0-10.csv')
+	data.to_csv('cnn_ros_data/data1_1crnA0-10.csv')
 
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
@@ -113,7 +113,7 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn0_1crnA0-10_abs_loss.png')
+	plt.savefig('cnn_ros_data/cnn1_1crnA0-10_abs_loss.png')
 	plt.clf()
 
 	a = [math.sqrt(e) for e in history.history['loss']]
@@ -125,7 +125,7 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn0_1crnA0-10_rel_loss.png')
+	plt.savefig('cnn_ros_data/cnn1_1crnA0-10_rel_loss.png')
 
 	#plt.show()
 
