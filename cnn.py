@@ -113,16 +113,19 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	savefig('cnn_cont_data/cnn0_1crnA0-10_abs_loss.png')
+	plt.savefig('cnn0_1crnA0-10_abs_loss.png')
+	plt.clf()
 
-	plt.plot(history.history['loss'] / np.mean(y_train))
-	plt.plot(history.history['val_loss'] / np.mean(y_test))
+	a = [math.sqrt(e) for e in history.history['loss']]
+	plt.plot(a / np.mean(y_train))
+	a = [math.sqrt(e) for e in history.history['val_loss']]
+	plt.plot(a / np.mean(y_test))
 	plt.title('model relative loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	savefig('cnn0_1crnA0-10_rel_loss.png')
+	plt.savefig('cnn0_1crnA0-10_rel_loss.png')
 
 	#plt.show()
 
