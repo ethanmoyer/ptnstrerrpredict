@@ -105,7 +105,7 @@ if (True):
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
-	data.to_csv('cnn_ros_data/data1_1crnA0-10.csv')
+	data.to_csv('cnn_cont_data/data1_1crnA0-10.csv')
 
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
@@ -114,7 +114,7 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_ros_data/cnn1_1crnA0-10_abs_loss.png')
+	plt.savefig('cnn_cont_data/cnn1_1crnA0-10_abs_loss.png')
 	plt.clf()
 
 	a = [math.sqrt(e) for e in history.history['loss']]
@@ -126,7 +126,7 @@ if (True):
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_ros_data/cnn1_1crnA0-10_rel_loss.png')
+	plt.savefig('cnn_cont_data/cnn1_1crnA0-10_rel_loss.png')
 
 	#plt.show()
 
