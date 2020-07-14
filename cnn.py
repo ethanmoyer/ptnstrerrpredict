@@ -83,7 +83,8 @@ feature_set = []
 for file in files:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
-	feature_set.append(np.reshape(grid2logical(entry.mat), (CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 1)))
+	a = grid2logical(entry.mat)
+	feature_set.append(np.reshape(entry.mat, (CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 1)))
 
 # Load energy scores from csv and sort them according to file name
 energy_scores = pd.read_csv(fdir + 'energy.csv')
