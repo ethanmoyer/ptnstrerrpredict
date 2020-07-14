@@ -1,5 +1,8 @@
 import pandas as pd
 import numpy as np
+from numpy import asarray
+
+from sklearn.preprocessing import OneHotEncoder
 
 import pickle 
 
@@ -14,6 +17,7 @@ from sklearn.model_selection import train_test_split
 
 from data_entry import data_entry
 from ptn_io import isfileandnotempty, getfileswithname
+from grid_point import grid_point
 
 import matplotlib.pyplot as plt
 
@@ -26,22 +30,67 @@ CUBIC_LENGTH_CONSTRAINT = 70
 BACTH_SIZE = 16
 
 # Features per object
-FEATURES_PER_GRID_POINT = 1
+FEATURES_PER_GRID_POINT = 2
 
+# Given an object loaded matrix of grid points, return a logical matrix representing atomic positions
 def grid2logical(mat):
 	a = len(mat)
-	logical_mat = np.zeros((a, a, a))
+	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
 	for i in range(len(mat)):
 		for j in range(len(mat[0])):
 			for k in range(len(mat[0][0])):
-				logical_mat[i, j, k] = mat[i][j][k].existence
-	return logical_mat
+				mat_[i][j][k] = mat[i][j][k].existence
+	return mat_
+
+
+# Given an object loaded matrix of grid points, return a matrix of atom types into general categories {'N', 'O', 'C', 'S'}
+def grid2atomtype(mat):
+	a = len(mat)
+	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
+
+	for i in range(len(mat)):
+		for j in range(len(mat[0])):
+			for k in range(len(mat[0][0])):
+				atom = mat[i][j][k].atom
+				if atom is None:
+					mat_[i][j][k] = atom_type_encoder[atom_type.index(["None"])]
+				else:
+					mat_[i][j][k] = atom_type_encoder[atom_type.index([atom[:1]])]
+	return mat_
+
+
+# Given an object loaded matrix of grid points, return a matrix of specific atom types
+def grid2atom(mat):
+	a = len(mat)
+	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
+
+	for i in range(len(mat)):
+		for j in range(len(mat[0])):
+			for k in range(len(mat[0][0])):
+				atom = mat[i][j][k].atom
+				if atom is None:
+					mat_[i][j][k] = atom_pos_encoder[atom_pos.index(["None"])]
+				else:
+					mat_[i][j][k] = atom_pos_encoder[atom_pos.index([atom])]
+	return mat_
+
+
+# Given an object loaded matrix of grid points, return a list of unique atoms.
+def get_all_atoms(mat, atoms):
+	for i in range(len(mat)):
+		for j in range(len(mat[0])):
+			for k in range(len(mat[0][0])):
+				atom = mat[i][j][k].atom
+				if atom is not None:
+					atoms.append(atom)
+	return list(set(atoms))
 
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
 
 
+	# Generate the CNN model
 	def generate_model(c, input_shape):
 		model = Sequential()
 		model.add(Conv3D(3, 8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
@@ -71,37 +120,70 @@ class cnn:
 		return model
 
 # Path name for storing all of the data
-fdir = 'ptndata/'
+fdir = 'ptndata0/'
 
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
 files.sort()
 
+# Initialize the feature set
 feature_set = []
 
-# Load all of the objects into the feature set 
-for file in files:
+encoder = OneHotEncoder(sparse=False)
+
+# Index for the four main types of atoms and None that will indexed when looping through each entry
+atom_type = [['C'], ['N'], ['O'], ['S'], ['None']]
+atom_type_data = np.array(atom_type)
+atom_type_encoder = encoder.fit_transform(atom_type_data)
+
+# Initialize a list of enzymes
+atom_pos = []
+
+# Loop through each file and make a list of all of the atoms present.
+for file in files[:5]:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
-	#a = grid2logical(entry.mat)
-	feature_set.append(np.reshape(entry.mat, (CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 1)))
+	atom_pos = get_all_atoms(entry.mat, atom_pos)
+
+# Format the position specific atom list so it can be used as one-hot encoding in the network
+atom_pos.append('None')
+atom_pos = [ [x] for x in atom_pos]
+atom_pos_data = np.array(atom_pos)
+atom_pos_encoder = encoder.fit_transform(atom_pos_data)
+
+# Load all of the objects into the feature set 
+for file in files[:5]:
+	filehandler = open(fdir + file, 'rb') 
+	entry = pickle.load(filehandler)
+	a = grid2logical(entry.mat)
+	b = grid2atomtype(entry.mat)
+	c = grid2atom(entry.mat)
+
+	# Append all of the feature categories into dimension
+	sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist() for i in range(CUBIC_LENGTH_CONSTRAINT)] for j in range(CUBIC_LENGTH_CONSTRAINT)] for k in range(CUBIC_LENGTH_CONSTRAINT)]
+
+	# Append each sample to the feature set
+	feature_set.append(sample)
 
 # Load energy scores from csv and sort them according to file name
-energy_scores = pd.read_csv(fdir + 'energy.csv')
+energy_scores = pd.read_csv(fdir + 'energy.csv')[:5]
 energy_scores.sort_values(by=['file'], inplace=True)
 
+# Split features and outputs
 X = np.array(feature_set)
 y = energy_scores['score'].values
 
+# 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
-
-input_shape = (BACTH_SIZE, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, FEATURES_PER_GRID_POINT)
 
 if (True):
 	cnn = cnn()
+
+	input_shape = (5, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 24)
+
 	model = cnn.generate_model(input_shape)
 
-	history = model.fit(X_train, y_train, epochs = 200, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 100, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 

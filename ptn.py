@@ -474,9 +474,7 @@ class ptn:
 		mat2 = p.ptn2grid(p.aa(), angles = [180,0,0])
 		p.visualize_grid(mat2)
 
-# File "/Users/ethanmoyer/Projects/Packages/Python/venv/lib/python3.8/site-packages/Bio/PDB/PDBParser.py", line 181, in _parse_coordinates
-    # resseq = int(line[22:26].split()[0])  # sequence identifier
-	# IndexError: list index out of range
+
 def load_files(id_, fdir = 'ptndata/'):
 	# Load all of the obj file types and sort them by file name
 	files = getfileswithname(fdir, [id_, 'clean.pdb'])
