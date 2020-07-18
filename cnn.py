@@ -53,9 +53,9 @@ def grid2atomtype(mat):
 			for k in range(len(mat[0][0])):
 				atom = mat[i][j][k].atom
 				if atom is None:
-					mat_[i][j][k] = atom_type_encoder[atom_type.index(["None"])]
+					mat_[i][j][k] = atom_type_encoder[atom_type.index("None")]
 				else:
-					mat_[i][j][k] = atom_type_encoder[atom_type.index([atom[:1]])]
+					mat_[i][j][k] = atom_type_encoder[atom_type.index(atom[:1])]
 	return mat_
 
 
@@ -69,9 +69,9 @@ def grid2atom(mat):
 			for k in range(len(mat[0][0])):
 				atom = mat[i][j][k].atom
 				if atom is None:
-					mat_[i][j][k] = atom_pos_encoder[atom_pos.index(["None"])]
+					mat_[i][j][k] = atom_pos_encoder[atom_pos.index("None")]
 				else:
-					mat_[i][j][k] = atom_pos_encoder[atom_pos.index([atom])]
+					mat_[i][j][k] = atom_pos_encoder[atom_pos.index(atom)]
 	return mat_
 
 
@@ -156,12 +156,10 @@ files.sort()
 # Initialize the feature set
 feature_set = []
 
-encoder = OneHotEncoder(sparse=False)
-
 # Index for the four main types of atoms and None that will indexed when looping through each entry
-atom_type = [['C'], ['N'], ['O'], ['S'], ['None']]
-atom_type_data = np.array(atom_type)
-atom_type_encoder = encoder.fit_transform(atom_type_data)
+atom_type = ['C', 'N', 'O', 'S', 'None']
+atom_type_data = pd.Series(atom_type)
+atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 
 # Initialize a list of enzymes
 atom_pos = []
@@ -177,9 +175,8 @@ for file in files:
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
 atom_pos.append('None')
-atom_pos = [ [x] for x in atom_pos]
-atom_pos_data = np.array(atom_pos)
-atom_pos_encoder = encoder.fit_transform(atom_pos_data)
+atom_pos_data = pd.Series(atom_pos)
+atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
 # Load all of the objects into the feature set 
 for file in files:
