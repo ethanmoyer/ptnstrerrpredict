@@ -10,8 +10,7 @@ import numpy as np
 
 # Centriod of coordinates
 def get_centriod(coords):
-	return np.mean(coords, axis = 0) / len(coords)
-	retu
+	return np.mean(coords, axis = 0)
 
 
 # Moves coordinates to arbitary point in space. Default point is center of coordinates.
@@ -19,6 +18,8 @@ def geo_move2position(coords, pos = None):
 
 	if pos == None:
 		pos = get_centriod(coords)
+	else:
+		pos = pos - get_centriod(coords)
 
 	x = pos[0]
 	y = pos[1]

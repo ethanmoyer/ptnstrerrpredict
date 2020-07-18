@@ -8,7 +8,7 @@ import pickle
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout, BatchNormalization, Activation
+from tensorflow.keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout, BatchNormalization, Activation, Reshape
 from tensorflow.keras import initializers 
 from tensorflow.keras import regularizers 
 from tensorflow.keras import constraints 
@@ -119,8 +119,35 @@ class cnn:
 
 		return model
 
+	def generate_model_contact_map(c, input_shape, output_shape):
+		model = Sequential()
+		model.add(Conv3D(3, 8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(8, activation='relu'))
+		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
+
+		model.add(Conv3D(3, 16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(16, activation='relu'))
+		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
+
+		model.add(Conv3D(3, 32, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(32, activation='relu'))
+		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
+
+		model.add(Dropout(0.5))
+		model.add(Reshape(output_shape[1:]))
+
+		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
+
+		model.summary()
+
+		return model
+
+
 # Path name for storing all of the data
-fdir = 'ptndata0/'
+fdir = 'ptndata1/'
 
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -139,11 +166,14 @@ atom_type_encoder = encoder.fit_transform(atom_type_data)
 # Initialize a list of enzymes
 atom_pos = []
 
+dm_output = []
+
 # Loop through each file and make a list of all of the atoms present.
-for file in files[:5]:
+for file in files:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	atom_pos = get_all_atoms(entry.mat, atom_pos)
+	dm_output.append(entry.dm)
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
 atom_pos.append('None')
@@ -152,7 +182,7 @@ atom_pos_data = np.array(atom_pos)
 atom_pos_encoder = encoder.fit_transform(atom_pos_data)
 
 # Load all of the objects into the feature set 
-for file in files[:5]:
+for file in files:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
@@ -166,24 +196,30 @@ for file in files[:5]:
 	feature_set.append(sample)
 
 # Load energy scores from csv and sort them according to file name
-energy_scores = pd.read_csv(fdir + 'energy.csv')[:5]
+energy_scores = pd.read_csv(fdir + 'energy.csv')
 energy_scores.sort_values(by=['file'], inplace=True)
 
 # Split features and outputs
 X = np.array(feature_set)
-y = energy_scores['score'].values
+#use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
+#y = energy_scores['rosetta_score'].values 
 
-# 
+y = dm_output
+y = np.reshape(y, (len(y), len(y[0][0]) * len(y[0][0])))
+y = y = y.astype(float)
+
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 
-if (True):
+if True:
 	cnn = cnn()
 
-	input_shape = (5, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 24)
+	input_shape = (5, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
+	output_shape = y.shape
+	#model = cnn.generate_model(input_shape)
 
-	model = cnn.generate_model(input_shape)
+	model = cnn.generate_model_contact_map(input_shape, output_shape)
 
-	history = model.fit(X_train, y_train, epochs = 100, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 10, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 

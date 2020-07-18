@@ -31,10 +31,16 @@ from geo import geo_move2position, geo_rotatebyangles_linear_alg, get_centriod, 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
-CUBIC_LENGTH_CONSTRAINT = 70
+CUBIC_LENGTH_CONSTRAINT = 100
 
 # Maximum amino acids that will be used from the protein sample.
-MAX_PROTEIN_LENGTH = 100
+MAX_PROTEIN_LENGTH = 10
+
+from enum import Enum
+class Score(Enum):
+	rosetta = 0
+	mse_dm = 1
+	dm = 2
 
 class ptn:
 	def __init__(p, info, chain = None, fromres = None, tores = None):	
@@ -45,30 +51,24 @@ class ptn:
 		p.chain = chain
 
 		# If a file is given in place of id, load the file and set the id equal to the id in the file name.
-		if isfileandnotempty(info):
-			# ethan: avoid regexp, only record file. id and file are disjoint
-			
+		if isfileandnotempty(info):			
 			p.loc = info
-			#file_with_ext = os.path.split(info)[len(re.findall('/', info))]
-			#info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', file_with_ext)
-
-			#p.id = info.group('id')
-			#p.chain = info.group('chain')
-
-			# Used for subsetting the residues
-			#p.fromres = int(info.group('fromres'))
-			#p.tores = int(info.group('tores'))
-
 		else:
 			# 1crnA 5-10'
 			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
 
+			p.info = info.group()
 			p.id = info.group('id')
 			p.chain = info.group('chain')
 
 			# Used for subsetting the residues
-			p.fromres = int(info.group('fromres'))
-			p.tores = int(info.group('tores'))
+			p.fromres = info.group('fromres')
+			if p.fromres is not None:
+				p.fromres = int(p.fromres)
+
+			p.tores = info.group('tores')
+			if p.tores is not None:
+				p.tores = int(p.tores)
 
 			# If incorrect protein identifier is passed
 			if p.id is None and p.chain is None and p.fromres is None and p.tores is None:
@@ -78,7 +78,7 @@ class ptn:
 			# Download structure if a file doesn't exist
 			print(p.id)
 
-			pdir = '/Users/ethanmoyer/Documents/pdb/' + p.id[1:3]
+			pdir = '/Users/data/pdb/' + p.id[1:3]
 
 			pdbl = PDBList()
 			p.loc = pdbl.retrieve_pdb_file(p.id, pdir = pdir)
@@ -145,11 +145,11 @@ class ptn:
 				aa_[-1]['atoms'].append(atom)
 
 			# Only concerned with the first 10 amino acids. Break once this max length has been reached.
-			if (len(aa_) == MAX_PROTEIN_LENGTH):
+			if (len(aa_) == MAX_PROTEIN_LENGTH - 1):
 				break
 
 		# Loop through all of the residues in the protein.
-		for a in aa_:
+		for a in aa_[:MAX_PROTEIN_LENGTH]:
 
 			# Loop through all of the atoms in each of the residues
 			for atom in a['atoms']: 
@@ -263,7 +263,7 @@ class ptn:
 					z = atom_coords[2]
 					atom_name = atom.get_name()
 					# pdb file format fprintf(fid, 'ATOM   %4d %-4s %s %s%5s   %8.3f%8.3f%8.3f  1.00  1.00           %s  \n', ... atomi, upper(a.resname), chain, ptn_num2icoded(resseqs(i)), X(i,1), X(i,2), X(i,3);
-					out = 'ATOM  %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n' % (atom_number, atom_name, aa['resseq'].get_resname(), aa['chain'], amino_acid_number, x, y, z, atom_name[:1])
+					out = 'ATOM   %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n' % (atom_number, atom_name, aa['resseq'].get_resname(), aa['chain'], amino_acid_number, x, y, z, atom_name[:1])
 
 #'ATOM  %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n'
 			
@@ -384,39 +384,44 @@ class ptn:
 
 
 	# Generate random data by messing up the original protein structure, calculating the energy using pyrosseta, and rotating it a random amount. Then save the score and matrix the data directory.
-	def generate_decoy_messup_score_mat(p, fdir, n = 10):
+	def generate_decoy_messup_scores(p, n = 10, score_types = [Score.rosetta, Score.mse_dm, Score.dm], fdir = 'ptndata1/', decoys = None):
+		if decoys is not None:
+			n = len(decoys)
+
 		for i in range(n):
-			p_ = copy.deepcopy(p)
-			p_ = p_.messup()
+			if decoys is None:
+				p_ = copy.deepcopy(p)
+				p_ = p_.messup()
+				file = fdir + p_.info + '_mess' + str(i) + '.pdb'
+				p_.export(file)
+			else:
+				p_ = decoys[i]
+				file = p_.loc
 
-			file = fdir + p_.info + '_mess' + str(i) + '.pdb'
+			scores = pd.DataFrame()
 
-			score, file = p_.pyrossetta_energy_calculation(file)
+			if Score.rosetta in score_types:
+				score0, _ = p_.energy_calc(file)
+				scores['rosetta_score'] = [score0]
+			if Score.mse_dm in score_types:
+				score1 = p_.mse_contact_calc(p)
+				scores['mse_dm_score'] = [score1]
+			if Score.dm in score_types:
+				score2 = p_.generate_distance_matrix()
+				scores['dm_score'] = [score2]
+
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
-			p_.save_data(mat, score, file)
-
-
-	# Generate random data by messing up the original protein structure, calculating the energy using pyrosseta, and rotating it a random amount. Then save the mse between the contact map of the native and decoy structure and matrix the data directory.
-	def generate_decoy_messup_mse_mat(p, fdir, n = 10):
-		for i in range(n):
-			p_ = copy.deepcopy(p)
-			p_ = p_.messup()
-
-			file = fdir + p_.info + '_mess' + str(i) + '.pdb'
-			print(file)
-			p_.export(file)
-			score = p_.mse_contact_calc(p)
-			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
-			p_.save_data(mat, score, file, fdir = 'ptndata0/', energy_file = 'ptndata0/energy.csv')
+			p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy.csv')
 
 
 	# This function stores a data_entry consisting of the 3D matrix with its relative score
-	def save_data(p, mat, score = None, file = None, fdir = '/ptndata', energy_file = 'ptndata/energy.csv'):
+	def save_data(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy.csv'):
 		# If no file is provided, create a temporary named file in the ptndata directory. Otherwise if pdb is in the file name, create file named the same as the .pdb file as an obj file.
 		if file == None:
 			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
 		elif 'clean.pdb' in file:
-			file = re.sub('clean.pdb','obj', file)
+			file = re.sub('.clean.pdb','.obj', file)
+			file = re.sub('tempfiles/', fdir, file)
 		elif 'pdb' in file:
 			file = re.sub('.pdb','.obj', file)
 			file = re.sub('tempfiles/', fdir, file)
@@ -424,16 +429,19 @@ class ptn:
 			print('Please provide a correct file type')
 			quit()
 
-		if score is not None:
-			# Find file name
-			csv_entry = re.match(fdir + '([\sA-Za-z0-9/_-]+)', file).groups()[0]
+		# Create score entry using file name without the extension and the score of the protein. Append this to the csv file storing scores.
+		dm = None
+		score_entry = pd.DataFrame({'file': [file]})
+		for i in range(len(scores.columns)):
+			if scores.columns[i] == 'dm_score':
+				dm = scores['dm_score']
+				continue
+			score_entry[scores.columns[i]] = scores[scores.columns[i]]
 
-			# Create score entry using file name without the extension and the score of the protein. Append this to the csv file storing scores.
-			score_entry = pd.DataFrame({'file': [csv_entry], 'score': [score]})
-			score_entry.to_csv(energy_file, mode = 'a', header = False, index = False)
+		score_entry.to_csv(energy_file, mode = 'a', header = False, index = False)
 
 		# Create a data entry of the given matrix and dump it as aa .obj file.
-		data_entry_ = data_entry(mat) 
+		data_entry_ = data_entry(mat, dm = dm) 
 		filehandler = open(file, 'wb') 
 		pickle.dump(data_entry_, filehandler)
 
@@ -475,48 +483,36 @@ class ptn:
 		p.visualize_grid(mat2)
 
 
-def load_files(id_, fdir = 'ptndata/'):
-	# Load all of the obj file types and sort them by file name
-	files = getfileswithname(fdir, [id_, 'clean.pdb'])
-	p_list = []
-	for file in files:
-		file = 'ptndata/' + file
-		p_list.append(ptn(file))
+	def load_decoys(p, fdir = 'ptndata/'):
+		# Load all of the obj file types and sort them by file name
+		files = getfileswithname(fdir, [p.id, 'clean.pdb'])
+		p_list = []
+		for file in files:
+			file = 'ptndata/' + file
+			p_list.append(ptn(file))
 
-	return(p_list)
+		return(p_list)
 
-id = '1crnA0-10'
-p = ptn(id)
-
-for p_decoy in load_files(id):
-	mat = p_decoy.ptn2grid(p_decoy.aa())
-	score = p_decoy.mse_contact_calc(p_native)
-	p_decoy.save_data(mat, score, file = file, energy_file = fdir + 'mse_distand_matrix')
 
 
 # Below is script
 if (False):
 
-	p.generate_decoy_messup_mse_mat('ptndata0/', 100)
-
 	ids = pd.read_csv('training.txt').values
 
 	for id in ids:
-		p = ptn(id[0])
+		p = ptn(id[0] + 'A0-10')
+		p.generate_decoy_messup_score_mse_mat(100, '/Users/data/ptnstrerrpredict/ptndata/')
+
+	for p_decoy in p.load_decoys():
+		mat = p_decoy.ptn2grid(p_decoy.aa())
+		score0 = p_decoy.mse_contact_calc(p)
+		score1, _ = p.energy_calc()
+		p_decoy.save_data(mat, pd.DataFrame({'rosetta_score': [score0], 'mse_score': [score1]}), file = p_decoy.loc, energy_file = fdir + '/energy.csv')
 
 	# Use data with one alpha helix
 	# DNA structure
 	p = ptn('103dB')
-
-	print('------CA atom coordinates------')
-	ca = p.ca()
-	print(np.shape(ca))
-	print(ca) #numpy matrix of CA atom coordinates of each amino acid
-
-	print('------CB atom coordinates------')
-	cb = p.cb()
-	print(np.shape(cb))
-	print(cb)
 
 
 	#ahmet: test ptn() for an example NMR file.
