@@ -212,7 +212,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 if True:
 	cnn = cnn()
 
-	input_shape = (5, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
+	input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
 	output_shape = y.shape
 	#model = cnn.generate_model(input_shape)
 
