@@ -21,6 +21,8 @@ from grid_point import grid_point
 
 import matplotlib.pyplot as plt
 
+import math
+
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
@@ -225,25 +227,25 @@ if True:
 	data.to_csv('cnn_cont_data/data2_1crnA0-10.csv')
 
 	plt.plot(history.history['loss'])
-	plt.plot(history.history['val_loss'])
+	#plt.plot(history.history['val_loss'])
 	plt.title('model absolute loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_cont_data/cnn2_1crnA0-10_abs_loss.png')
+	plt.savefig('cnn_cont_data/cnn3_1crnA0-10_abs_loss.png')
 	plt.clf()
 
 	a = [math.sqrt(e) for e in history.history['loss']]
 	plt.plot(a / np.mean(y_train))
-	a = [math.sqrt(e) for e in history.history['val_loss']]
-	plt.plot(a / np.mean(y_test))
+	#a = [math.sqrt(e) for e in history.history['val_loss']]
+	#plt.plot(a / np.mean(y_test))
 	plt.title('model relative loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_cont_data/cnn2_1crnA0-10_rel_loss.png')
+	plt.savefig('cnn_cont_data/cnn3_1crnA0-10_rel_loss.png')
 
 	#plt.show()
 
