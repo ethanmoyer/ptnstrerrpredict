@@ -137,6 +137,8 @@ class cnn:
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
 
 		model.add(Dropout(0.5))
+		model.add(Flatten())
+		model.add(Dense(output_shape[2] * output_shape[2]))
 		model.add(Reshape(output_shape[1:]))
 
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
@@ -167,7 +169,7 @@ atom_pos = []
 dm_output = []
 
 # Loop through each file and make a list of all of the atoms present.
-for file in files:
+for file in files[:5]:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	atom_pos = get_all_atoms(entry.mat, atom_pos)
@@ -202,8 +204,8 @@ X = np.array(feature_set)
 #y = energy_scores['rosetta_score'].values 
 
 y = dm_output
-y = np.reshape(y, (len(y), len(y[0][0]) * len(y[0][0])))
-y = y = y.astype(float)
+y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
+y = y.astype(float)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 
