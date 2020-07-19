@@ -169,7 +169,7 @@ atom_pos = []
 dm_output = []
 
 # Loop through each file and make a list of all of the atoms present.
-for file in files[:5]:
+for file in files:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	atom_pos = get_all_atoms(entry.mat, atom_pos)
@@ -209,7 +209,7 @@ y = y.astype(float)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 
-if True:
+if False:
 	cnn = cnn()
 
 	input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
