@@ -41,7 +41,7 @@ def grid2logical(mat):
 	for i in range(len(mat)):
 		for j in range(len(mat[0])):
 			for k in range(len(mat[0][0])):
-				mat_[i][j][k] = mat[i][j][k].existence
+				mat_[i][j][k] = mat[i][j][k].occupancy
 	return mat_
 
 
@@ -151,7 +151,7 @@ class cnn:
 
 
 # Path name for storing all of the data
-fdir = 'ptndata1/'
+fdir = 'ptndata_small/'
 
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -220,7 +220,7 @@ if True:
 
 	model = cnn.generate_model_contact_map(input_shape, output_shape)
 
-	history = model.fit(X_train, y_train, epochs = 10, batch_size = 16, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 10, batch_size = 10, verbose=1, validation_data=(X_test, y_test))
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 

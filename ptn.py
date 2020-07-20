@@ -24,6 +24,7 @@ import copy
 
 from data_entry import data_entry
 from grid_point import grid_point
+from equ import calculate_atom_occupacy, find_nearest_atom, find_atom_distances
 
 from ptn_io import isfileandnotempty, getfileswithname
 from geo import geo_move2position, geo_rotatebyangles_linear_alg, get_centriod, geo_generate_dihedral_angles
@@ -31,10 +32,7 @@ from geo import geo_move2position, geo_rotatebyangles_linear_alg, get_centriod, 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
-CUBIC_LENGTH_CONSTRAINT = 100
-
-# Maximum amino acids that will be used from the protein sample.
-MAX_PROTEIN_LENGTH = 10
+CUBIC_LENGTH_CONSTRAINT = 70
 
 from enum import Enum
 class Score(Enum):
@@ -107,6 +105,11 @@ class ptn:
 		return p.protein_;
 
 
+	# Work on this function... Given a protein and a helix identifier, find all ranges in the protein which are identified by that helix
+	def find_helix(p, helix='H'):
+		return 0
+
+
 	# This function returns all of the amino acids of a protein with data about each of the atoms.
 	def aa(p):
 		# If amino acid list has been previously assigned, return it.
@@ -115,7 +118,7 @@ class ptn:
 
 		# Otherwise, start building new amino acid list.
 		aa_ = []
-		
+		p.atom_list = []
 		# Keep track of last chain and resseq
 		lastchain = None
 		lastresseq = None
@@ -129,7 +132,8 @@ class ptn:
 			atom_res = Selection.unfold_entities(atom, 'R')[0]
 			
 			#ahmet: if p.fromres is used && atom_res < p.fromres || atom_res > p.tores; continue; end
-			if (p.fromres is not None and p.tores is not None) and (res_number < p.fromres or res_number > p.tores):
+			if (p.fromres is not None and p.tores is not None) and (res_number < p.fromres or res_number > p.tores) and (atom_chain != lastchain or atom_res != lastresseq):
+				res_number += 1
 				continue
 			
 			# If the atom is from a unique residue or chain, append the atom as a new entry to the amino acid list
@@ -138,18 +142,16 @@ class ptn:
 				aa_.append({'chain': atom_chain, 'resseq': atom_res, 'atoms':[atom]})
 				lastchain = atom_chain
 				lastresseq = atom_res
+				p.atom_list.append(atom.get_name())
 				res_number += 1
 
 			# If it is not from a unqiue residue, append it to the previous residue entry.
 			else:
 				aa_[-1]['atoms'].append(atom)
-
-			# Only concerned with the first 10 amino acids. Break once this max length has been reached.
-			if (len(aa_) == MAX_PROTEIN_LENGTH - 1):
-				break
+				p.atom_list.append(atom.get_name())
 
 		# Loop through all of the residues in the protein.
-		for a in aa_[:MAX_PROTEIN_LENGTH]:
+		for a in aa_:
 
 			# Loop through all of the atoms in each of the residues
 			for atom in a['atoms']: 
@@ -288,7 +290,7 @@ class ptn:
 		p_ = copy.deepcopy(p)
 
 		# Multiplier for scaling delta
-		multiplier = 2
+		multiplier = 1
 
 		# Loop through all atoms in all amino acids and move each of them by a randomly generated delta value
 		for aa in p_.aa():
@@ -340,7 +342,7 @@ class ptn:
 		logical_mat = np.zeros((a, a, a))
 
 		# Initialize a x a x a grid of points with objects for storing data
-		mat = [[[grid_point() for i in range(a)] for j in range(a)] for j in range(a)]
+		mat = [[[grid_point(coords=[i + 0.5, j + 0.5, k + 0.5]) for i in range(a)] for j in range(a)] for k in range(a)]
 
 		atom_number = 0
 
@@ -360,10 +362,10 @@ class ptn:
 
 				# Assign a logical 1 at the position of the atom
 				logical_mat[x, y, z] = 1
-				mat[x][y][z].existence = 1
 
 				# Store atom and residue names
 				mat[x][y][z].atom = atom.get_name()
+				mat[x][y][z].coords = atom.get_coord()
 				mat[x][y][z].aa = aa['resseq'].get_resname()
 
 				# Store dihedral angles at all atoms except for the first one and last two
@@ -371,27 +373,56 @@ class ptn:
 				#	mat[x][y][z].diangle = dihedreal_angles[atom_number - 1]
 
 				# Create distance vector from the atoms points to all of the other points. Normalize those into vectors and find and store the minimum distance.
-				distnace_vector = np.delete(atoms_shifted, atom_number, 0) - atom.get_coord()			
-				atom_distances = np.sqrt(distnace_vector[:,0]**2 + distnace_vector[:,1]**2 + distnace_vector[:,2]**2)
-				mat[x][y][z].distance_to_nearest_atom = np.min(atom_distances)
+				
+
+				
 
 				# Count the number of atoms within a certain threshold distance.
+
+				atom_distances = find_atom_distances(atom.get_coord(), atoms_shifted)
+
 				mat[x][y][z].atoms_within_threshold = len(atom_distances[atom_distances <= mat[x][y][z].threshold])
 
 				atom_number += 1
+
+		# Calculate occupancy for each grid point
+		for x in range(a):
+			for y in range(a):
+				for z in range(a):
+
+					coords = mat[x][y][z].coords
+
+					distance_to_nearest_atom, nearest_atom_number = find_nearest_atom(coords, atoms_shifted)
+
+					mat[x][y][z].distance_to_nearest_atom = distance_to_nearest_atom
+
+					nearest_atom = p.atom_list[nearest_atom_number][:1]
+
+					mat[x][y][z].nearest_atom = nearest_atom
+
+
+					mat[x][y][z].occupancy = calculate_atom_occupacy(nearest_atom, distance_to_nearest_atom)
+
+					#print(mat[x][y][z].coords)
+					#print(nearest_atom)
+					#print(distance_to_nearest_atom)
+					#print(mat[x][y][z].occupancy)
+					#if z == 5:
+					#	quit()
 
 		return mat
 
 
 	# Generate random data by messing up the original protein structure, calculating the energy using pyrosseta, and rotating it a random amount. Then save the score and matrix the data directory.
-	def generate_decoy_messup_scores(p, n = 10, score_types = [Score.rosetta, Score.mse_dm, Score.dm], fdir = 'ptndata1/', decoys = None):
+	def generate_decoy_messup_scores(p, n = 10, native_rate = 0, start = 0, score_types = [Score.rosetta, Score.mse_dm, Score.dm], fdir = 'ptndata/', decoys = None):
 		if decoys is not None:
 			n = len(decoys)
 
-		for i in range(n):
+		for i in range(start, n + start):
 			if decoys is None:
 				p_ = copy.deepcopy(p)
-				p_ = p_.messup()
+				if random.random() > native_rate:
+					p_ = p_.messup()
 				file = fdir + p_.info + '_mess' + str(i) + '.pdb'
 				p_.export(file)
 			else:
@@ -493,6 +524,15 @@ class ptn:
 
 		return(p_list)
 
+
+for i in range(900):
+
+	start = int(random.random() * 8) + 7
+	end = start + 4
+
+	p = ptn(f'1crnA{start}-{end}')
+
+	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/')
 
 
 # Below is script
