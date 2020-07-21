@@ -154,7 +154,7 @@ class cnn:
 fdir = 'data/ptndata_small/'
 
 # Load all of the obj file types and sort them by file name
-files = getfileswithname(fdir, 'obj')
+files = getfileswithname(fdir, 'obj')[:20]
 files.sort()
 
 # Initialize the feature set
@@ -184,6 +184,7 @@ atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
 # Load all of the objects into the feature set 
 for file in files[:20]:
+	print(f'File: {files}')
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
@@ -197,7 +198,7 @@ for file in files[:20]:
 	feature_set.append(sample)
 
 # Load energy scores from csv and sort them according to file name
-energy_scores = pd.read_csv(fdir + 'energy.csv')
+energy_scores = pd.read_csv(fdir + 'energy.csv')[:20]
 energy_scores.sort_values(by=['file'], inplace=True)
 
 # Split features and outputs
