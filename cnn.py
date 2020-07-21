@@ -152,7 +152,7 @@ class cnn:
 
 # Path name for storing all of the data
 fdir = 'data/ptndata_small/'
-
+print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')[:20]
 files.sort()
@@ -169,7 +169,7 @@ atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 atom_pos = []
 
 dm_output = []
-
+print('Loading positional atom types and distance matrix output...')
 # Loop through each file and make a list of all of the atoms present.
 for file in files[:20]:
 	filehandler = open(fdir + file, 'rb') 
@@ -181,7 +181,7 @@ for file in files[:20]:
 atom_pos.append('None')
 atom_pos_data = pd.Series(atom_pos)
 atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
-
+print('Loading main features...')
 # Load all of the objects into the feature set 
 for file in files[:20]:
 	print(f'File: {files}')
@@ -211,7 +211,7 @@ y = energy_scores['rosetta_score'].values
 #y = y.astype(float)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
-
+print('Running model...')
 if True:
 	cnn = cnn()
 
