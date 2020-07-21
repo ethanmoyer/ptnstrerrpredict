@@ -2,6 +2,18 @@
 # python3.7 -i ptn.py
 # Working off of /Library/Frameworks/Python.framework/Versions/3.8/lib/python3.8/site-packages/Bio/PDB/
 
+# pbcopy < ~/.ssh/id_rsa.pub
+
+'''
+wget https://www.python.org/ftp/python/3.6.3/Python-3.6.3.tgz
+tar -xvf Python-3.6.3.tgz
+cd Python-3.6.3
+./configure
+sudo apt-get install zlib1g-dev
+sudo make
+sudo make install
+python3 -V
+'''
 from Bio.PDB import *
 
 from pyrosetta import *
@@ -532,7 +544,7 @@ for i in range(1000):
 
 	p = ptn(f'1crnA{start}-{end}')
 
-	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = 'ptndata_small/')
+	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/')
 
 
 # Below is script
