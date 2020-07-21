@@ -216,9 +216,9 @@ if True:
 
 	input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
 	output_shape = y.shape
-	#model = cnn.generate_model(input_shape)
+	model = cnn.generate_model(input_shape)
 
-	model = cnn.generate_model_contact_map(input_shape, output_shape)
+	#model = cnn.generate_model_contact_map(input_shape, output_shape)
 
 	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
 
