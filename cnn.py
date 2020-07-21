@@ -171,7 +171,7 @@ atom_pos = []
 dm_output = []
 
 # Loop through each file and make a list of all of the atoms present.
-for file in files[:100]:
+for file in files[:20]:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	atom_pos = get_all_atoms(entry.mat, atom_pos)
@@ -183,7 +183,7 @@ atom_pos_data = pd.Series(atom_pos)
 atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
 # Load all of the objects into the feature set 
-for file in files[:100]:
+for file in files[:20]:
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
