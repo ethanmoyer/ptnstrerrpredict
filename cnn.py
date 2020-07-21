@@ -203,11 +203,11 @@ energy_scores.sort_values(by=['file'], inplace=True)
 # Split features and outputs
 X = np.array(feature_set)
 #use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
-#y = energy_scores['rosetta_score'].values 
+y = energy_scores['rosetta_score'].values 
 
-y = dm_output
-y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
-y = y.astype(float)
+#y = dm_output
+#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
+#y = y.astype(float)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 
@@ -220,11 +220,11 @@ if True:
 
 	model = cnn.generate_model_contact_map(input_shape, output_shape)
 
-	history = model.fit(X_train, y_train, epochs = 10, batch_size = 10, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
-	data.to_csv('cnn_cont_data/data2_1crnA0-10.csv')
+	data.to_csv('figures/1crnA5H_ros.csv')
 
 	plt.plot(history.history['loss'])
 	#plt.plot(history.history['val_loss'])
@@ -233,7 +233,7 @@ if True:
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_cont_data/cnn3_1crnA0-10_abs_loss.png')
+	plt.savefig('figures/1crnA5H_ros_abs_loss.png')
 	plt.clf()
 
 	a = [math.sqrt(e) for e in history.history['loss']]
@@ -245,7 +245,7 @@ if True:
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
 
-	plt.savefig('cnn_cont_data/cnn3_1crnA0-10_rel_loss.png')
+	plt.savefig('figures/1crnA5H_ros_rel_loss.png')
 
 	#plt.show()
 
