@@ -525,14 +525,14 @@ class ptn:
 		return(p_list)
 
 
-for i in range(900):
+for i in range(1000):
 
 	start = int(random.random() * 8) + 7
 	end = start + 4
 
 	p = ptn(f'1crnA{start}-{end}')
 
-	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/')
+	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = 'ptndata_small/')
 
 
 # Below is script
