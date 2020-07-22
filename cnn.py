@@ -169,9 +169,12 @@ atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 atom_pos = []
 
 dm_output = []
+i = 0
 print('Loading positional atom types and distance matrix output...')
 # Loop through each file and make a list of all of the atoms present.
 for file in files[:20]:
+	print('File complete:' , i / len(files) * 100)
+	i += 1
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	atom_pos = get_all_atoms(entry.mat, atom_pos)
@@ -181,10 +184,12 @@ for file in files[:20]:
 atom_pos.append('None')
 atom_pos_data = pd.Series(atom_pos)
 atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
+i = 0
 print('Loading main features...')
 # Load all of the objects into the feature set 
 for file in files[:20]:
 	print('File complete:' , i / len(files) * 100)
+	i += 1
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
