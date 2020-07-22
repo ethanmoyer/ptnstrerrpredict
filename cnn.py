@@ -151,7 +151,7 @@ class cnn:
 
 
 # Path name for storing all of the data
-fdir = 'data/ptndata_small/'
+fdir = 'ptndata_small/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')[:20]
