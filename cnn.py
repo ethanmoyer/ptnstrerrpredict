@@ -184,7 +184,7 @@ atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 print('Loading main features...')
 # Load all of the objects into the feature set 
 for file in files[:20]:
-	print(f'File: {files}')
+	print('File complete:' , i / len(files) * 100)
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
