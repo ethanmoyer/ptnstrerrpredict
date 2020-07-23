@@ -152,7 +152,7 @@ class cnn:
 
 start_time = time()
 
-samples = 100	
+samples = 1000	
 
 # Path name for storing all of the data
 fdir = 'ptndata_small/'
@@ -231,11 +231,11 @@ model = cnn.generate_model(input_shape)
 
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
 if True:
-	history = model.fit(X_train, y_train, epochs = 10, batch_size = 8, verbose=1, validation_data=(X_test, y_test))
+	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
 	print('Time elapsed:', time() - start_time)
 
 
-if False:
+if True:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
 	data.to_csv('figures/1crnA5H_ros.csv')
