@@ -23,6 +23,9 @@ from grid_point import grid_point
 import matplotlib.pyplot as plt
 
 import math
+# size test
+# getsizeof(feature_set)*getsizeof(feature_set[0])*getsizeof(feature_set[0][0])*getsizeof(feature_set[0][0][0])*getsizeof(feature_set[0][0][0][0][0])
+# 75698798592000
 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
@@ -187,7 +190,7 @@ class cnn:
 
 start_time = time()
 
-samples = 100
+samples = 1000
 
 # Path name for storing all of the data
 fdir = 'ptndata_small/'
