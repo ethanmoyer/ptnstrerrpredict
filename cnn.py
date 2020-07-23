@@ -159,7 +159,7 @@ fdir = 'ptndata_small/'
 #fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
-files = getfileswithname(fdir, 'obj', samples)
+files = getfileswithname(fdir, 'obj')[:samples]
 files.sort()
 
 # Initialize the feature set
