@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from numpy import asarray
+from time import time
 
 from sklearn.preprocessing import OneHotEncoder
 
@@ -149,12 +150,16 @@ class cnn:
 
 		return model
 
+start_time = time()
+
+samples = 10		
 
 # Path name for storing all of the data
-fdir = 'ptndata_small/'
+fdir = 'ptndata/ptndata_small/'
+fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
-files = getfileswithname(fdir, 'obj')[:20]
+files = getfileswithname(fdir, 'obj')
 files.sort()
 
 # Initialize the feature set
@@ -172,7 +177,7 @@ dm_output = []
 i = 0
 print('Loading positional atom types and distance matrix output...')
 # Loop through each file and make a list of all of the atoms present.
-for file in files[:20]:
+for file in files[:samples]:
 	print('File complete:' , i / len(files) * 100)
 	i += 1
 	filehandler = open(fdir + file, 'rb') 
@@ -187,29 +192,29 @@ atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 i = 0
 print('Loading main features...')
 # Load all of the objects into the feature set 
-for file in files[:20]:
+for file in files[:samples]:
 	print('File complete:' , i / len(files) * 100)
 	i += 1
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
 	a = grid2logical(entry.mat)
 	b = grid2atomtype(entry.mat)
-	c = grid2atom(entry.mat)
+	#c = grid2atom(entry.mat) ... + c[i][j][k].tolist()
 
 	# Append all of the feature categories into dimension
-	sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist() for i in range(CUBIC_LENGTH_CONSTRAINT)] for j in range(CUBIC_LENGTH_CONSTRAINT)] for k in range(CUBIC_LENGTH_CONSTRAINT)]
+	sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() for i in range(CUBIC_LENGTH_CONSTRAINT)] for j in range(CUBIC_LENGTH_CONSTRAINT)] for k in range(CUBIC_LENGTH_CONSTRAINT)]
 
 	# Append each sample to the feature set
 	feature_set.append(sample)
 
 # Load energy scores from csv and sort them according to file name
-energy_scores = pd.read_csv(fdir + 'energy.csv')[:20]
+energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
 energy_scores.sort_values(by=['file'], inplace=True)
 
 # Split features and outputs
 X = np.array(feature_set)
 #use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
-y = energy_scores['rosetta_score'].values 
+y = energy_scores['rosetta_score'].values[:samples]
 
 #y = dm_output
 #y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
@@ -217,17 +222,20 @@ y = energy_scores['rosetta_score'].values
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 print('Running model...')
+
+cnn = cnn()
+
+input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, X.shape[4])
+output_shape = y.shape
+model = cnn.generate_model(input_shape)
+
+#model = cnn.generate_model_contact_map(input_shape, output_shape)
 if True:
-	cnn = cnn()
+	history = model.fit(X_train, y_train, epochs = 10, batch_size = 1, verbose=1, validation_data=(X_test, y_test))
+	print('Time elapsed:', time() - start_time)
 
-	input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 20)
-	output_shape = y.shape
-	model = cnn.generate_model(input_shape)
 
-	#model = cnn.generate_model_contact_map(input_shape, output_shape)
-
-	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
-
+if False:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
 	data.to_csv('figures/1crnA5H_ros.csv')
