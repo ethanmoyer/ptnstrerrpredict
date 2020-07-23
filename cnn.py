@@ -32,9 +32,6 @@ CUBIC_LENGTH_CONSTRAINT = 70
 # Number of samples to be shoved into the network each round
 BACTH_SIZE = 16
 
-# Features per object
-FEATURES_PER_GRID_POINT = 2
-
 # Given an object loaded matrix of grid points, return a logical matrix representing atomic positions
 def grid2logical(mat):
 	a = len(mat)
@@ -88,10 +85,48 @@ def get_all_atoms(mat, atoms):
 					atoms.append(atom)
 	return list(set(atoms))
 
+
+def find_bounds(mat):
+	x = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[i]) != 0.0).any()]
+	x_min = min(x)
+	x_max = max(x)
+
+	y = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[x_min][i]) != 0.0).any()]
+	y_min = min(y)
+	y_max = max(y)
+
+	z = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[x_min][y_min][i]) != 0.0).any()]
+	z_min = min(z)
+	z_max = max(z)
+
+	return x_min, y_min, z_min, x_max, y_max, z_max
+
+
+def update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max):
+	if new_x_min < x_min:
+		x_min = new_x_min
+
+	if new_y_min < y_min:
+		y_min = new_y_min
+
+	if new_z_min < z_min:
+		z_min = new_z_min
+
+	if new_x_max > x_max:
+		x_max = new_x_max
+
+	if new_y_max > y_max:
+		y_max = new_y_max
+
+	if new_z_max > z_max:
+		z_max = new_z_max	
+
+	return x_min, y_min, z_min, x_max, y_max, z_max
+
+
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
-
 
 	# Generate the CNN model
 	def generate_model(c, input_shape):
@@ -152,7 +187,7 @@ class cnn:
 
 start_time = time()
 
-samples = 1000	
+samples = 100
 
 # Path name for storing all of the data
 fdir = 'ptndata_small/'
@@ -175,67 +210,75 @@ atom_pos = []
 
 dm_output = []
 i = 0
-print('Loading positional atom types and distance matrix output...')
+print('Loading positional atom types, distance matrix, and required size of window ...')
 # Loop through each file and make a list of all of the atoms present.
+
+x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 for file in files[:samples]:
 	print('File complete:' , i / len(files) * 100)
 	i += 1
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
-	atom_pos = get_all_atoms(entry.mat, atom_pos)
-	dm_output.append(entry.dm)
+	new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
+	x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
+
+	#atom_pos = get_all_atoms(entry.mat, atom_pos)
+	#dm_output.append(entry.dm)
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
-atom_pos.append('None')
-atom_pos_data = pd.Series(atom_pos)
-atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
-i = 0
-print('Loading main features...')
-# Load all of the objects into the feature set 
-for file in files[:samples]:
-	print('File complete:' , i / len(files) * 100)
-	i += 1
-	filehandler = open(fdir + file, 'rb') 
-	entry = pickle.load(filehandler)
-	a = grid2logical(entry.mat)
-	b = grid2atomtype(entry.mat)
-	#c = grid2atom(entry.mat) ... + c[i][j][k].tolist()
+#atom_pos.append('None')
+#tom_pos_data = pd.Series(atom_pos)
+#atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
-	# Append all of the feature categories into dimension
-	sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() for i in range(CUBIC_LENGTH_CONSTRAINT)] for j in range(CUBIC_LENGTH_CONSTRAINT)] for k in range(CUBIC_LENGTH_CONSTRAINT)]
+if True:
+	print('Loading main features...')
+	i = 0
+	# Load all of the objects into the feature set 
+	for file in files[:samples]:
+		print('File complete:' , i / len(files) * 100)
+		i += 1
+		filehandler = open(fdir + file, 'rb') 
+		entry = pickle.load(filehandler)
+		a = grid2logical(entry.mat)
+		b = grid2atomtype(entry.mat)
+		#c = grid2atom(entry.mat) ... + c[i][j][k].tolist()
 
-	# Append each sample to the feature set
-	feature_set.append(sample)
+		# Append all of the feature categories into dimension
+		sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)]
 
-# Load energy scores from csv and sort them according to file name
-energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
-energy_scores.sort_values(by=['file'], inplace=True)
+		# Append each sample to the feature set
+		feature_set.append(sample)
 
-# Split features and outputs
-X = np.array(feature_set)
-#use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
-y = energy_scores['rosetta_score'].values[:samples]
+if True:
+	# Load energy scores from csv and sort them according to file name
+	energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
+	energy_scores.sort_values(by=['file'], inplace=True)
 
-#y = dm_output
-#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
-#y = y.astype(float)
+	# Split features and outputs
+	X = np.array(feature_set)
+	#use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
+	y = energy_scores['rosetta_score'].values[:samples]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
-print('Running model...')
+	#y = dm_output
+	#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
+	#y = y.astype(float)
 
-cnn = cnn()
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
+	print('Running model...')
 
-input_shape = (y.shape[0], CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, X.shape[4])
-output_shape = y.shape
-model = cnn.generate_model(input_shape)
+	cnn = cnn()
+
+	input_shape = (y.shape[0], x_max - x_min, y_max - y_min, z_max - z_min, X.shape[4])
+	output_shape = y.shape
+	model = cnn.generate_model(input_shape)
 
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
-if True:
+if False:
 	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
 	print('Time elapsed:', time() - start_time)
 
 
-if True:
+if False:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
 
 	data.to_csv('figures/1crnA5H_ros.csv')
