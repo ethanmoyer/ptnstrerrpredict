@@ -152,7 +152,7 @@ class cnn:
 
 start_time = time()
 
-samples = 10		
+samples = 100	
 
 # Path name for storing all of the data
 fdir = 'ptndata_small/'
