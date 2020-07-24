@@ -197,7 +197,7 @@ fdir = 'ptndata_small/'
 #fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
-files = getfileswithname(fdir, 'obj')[:samples]
+files = getfileswithname(fdir, 'obj')
 files.sort()
 
 # Initialize the feature set
@@ -207,6 +207,10 @@ feature_set = []
 atom_type = ['C', 'N', 'O', 'S', 'None']
 atom_type_data = pd.Series(atom_type)
 atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
+
+# Loading files
+energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
+energy_scores.sort_values(by=['file'], inplace=True)
 
 # Initialize a list of enzymes
 atom_pos = []
@@ -219,6 +223,10 @@ print('Loading positional atom types, distance matrix, and required size of wind
 x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 for file in files[:samples]:
 	print('File complete:' , i / len(files) * 100)
+
+	if file not in energy_scores['file']:
+		continue
+
 	i += 1
 	filehandler = open(fdir + file, 'rb') 
 	entry = pickle.load(filehandler)
@@ -240,6 +248,10 @@ if True:
 	for file in files[:samples]:
 		print('File complete:' , i / len(files) * 100)
 		i += 1
+		
+		if file not in energy_scores['file']:
+				continue
+
 		filehandler = open(fdir + file, 'rb') 
 		entry = pickle.load(filehandler)
 		a = grid2logical(entry.mat)
@@ -254,8 +266,6 @@ if True:
 
 if True:
 	# Load energy scores from csv and sort them according to file name
-	energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
-	energy_scores.sort_values(by=['file'], inplace=True)
 
 	# Split features and outputs
 	X = np.array(feature_set)
