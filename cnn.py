@@ -193,8 +193,8 @@ start_time = time()
 samples = 1000
 
 # Path name for storing all of the data
-fdir = 'ptndata_small/'
-#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
+#fdir = 'ptndata_small/'
+fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -224,7 +224,7 @@ x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH
 for file in files[:samples]:
 	print('File complete:' , i / len(files) * 100)
 
-	if file not in energy_scores['file']:
+	if all([file not in energy_file for energy_file in energy_scores['file']]):
 		continue
 
 	i += 1
@@ -248,8 +248,8 @@ if True:
 	for file in files[:samples]:
 		print('File complete:' , i / len(files) * 100)
 		i += 1
-		
-		if file not in energy_scores['file']:
+
+		if all([file not in energy_file for energy_file in energy_scores['file']]):
 				continue
 
 		filehandler = open(fdir + file, 'rb') 
