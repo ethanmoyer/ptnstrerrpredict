@@ -127,6 +127,19 @@ def update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_m
 	return x_min, y_min, z_min, x_max, y_max, z_max
 
 
+def load_data(file_handler, block_size=10000):
+    block = []
+    for line in file_handler:
+        block.append(line)
+        if len(block) == block_size:
+            yield block
+            block = []
+
+    # don't forget to yield the last block
+    if block:
+        yield block
+
+
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
@@ -190,18 +203,15 @@ class cnn:
 
 start_time = time()
 
-samples = 1000
+samples = 5
 
 # Path name for storing all of the data
-fdir = 'ptndata_small/'
-#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/'
+#fdir = 'ptndata_small/'
+fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
 files.sort()
-
-# Initialize the feature set
-feature_set = []
 
 # Index for the four main types of atoms and None that will indexed when looping through each entry
 atom_type = ['C', 'N', 'O', 'S', 'None']
@@ -222,7 +232,7 @@ print('Loading positional atom types, distance matrix, and required size of wind
 
 x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 for file in files[:samples]:
-	print('File complete:' , i / len(files) * 100)
+	print('File complete:', i / len(files) * 100)
 
 	if all([file not in energy_file for energy_file in energy_scores['file']]):
 		continue
@@ -233,43 +243,52 @@ for file in files[:samples]:
 	new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
 	x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
 
-	#atom_pos = get_all_atoms(entry.mat, atom_pos)
-	#dm_output.append(entry.dm)
+	atom_pos = get_all_atoms(entry.mat, atom_pos)
+	dm_output.append(entry.dm)
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
-#atom_pos.append('None')
-#tom_pos_data = pd.Series(atom_pos)
-#atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
+atom_pos.append('None')
+atom_pos_data = pd.Series(atom_pos)
+atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
+
+# Initialize the feature set
+feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(samples)])
+
+#feature_set = []
 
 if True:
 	print('Loading main features...')
-	i = 0
+	q = 0
 	# Load all of the objects into the feature set 
 	for file in files[:samples]:
-		print('File complete:' , i / len(files) * 100)
-		i += 1
-
+		print('File complete:' , q / len(files) * 100)
+		
 		if all([file not in energy_file for energy_file in energy_scores['file']]):
-				continue
+			continue
 
 		filehandler = open(fdir + file, 'rb') 
 		entry = pickle.load(filehandler)
 		a = grid2logical(entry.mat)
 		b = grid2atomtype(entry.mat)
-		#c = grid2atom(entry.mat) ... + c[i][j][k].tolist()
+		c = grid2atom(entry.mat)
 
 		# Append all of the feature categories into dimension
-		sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)]
+		#sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist() for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)]
 
 		# Append each sample to the feature set
-		feature_set.append(sample)
+		for i in range(len(feature_set)):
+			for j in range(len(feature_set[0])):
+				for k in range(len(feature_set[0][0])):
+					feature_set[q][i][j][k] = [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist()
+		i += q
 
 if True:
 	# Load energy scores from csv and sort them according to file name
 
 	# Split features and outputs
-	X = np.array(feature_set)
-	#use this later y = energy_scores['rosetta_score'].values # rosetta_score,mse_score
+	#X = np.array(feature_set)
+	X = feature_set
+	#use this later y = energy_scores['mse_score'].values # rosetta_score,mse_score
 	y = energy_scores['rosetta_score'].values[:samples]
 
 	#y = dm_output
@@ -286,36 +305,31 @@ if True:
 	model = cnn.generate_model(input_shape)
 
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
-if False:
-	history = model.fit(X_train, y_train, epochs = 100, batch_size = 80, verbose=1, validation_data=(X_test, y_test))
+if True:
+	history = model.fit(X_train, y_train, epochs = 10, batch_size = 10, verbose=1, validation_data=(X_test, y_test))
 	print('Time elapsed:', time() - start_time)
 
 
 if False:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
-
-	data.to_csv('figures/1crnA5H_ros.csv')
-
+	data.to_csv('figures/1crnA5H_mse.csv')
 	plt.plot(history.history['loss'])
-	#plt.plot(history.history['val_loss'])
+	plt.plot(history.history['val_loss'])
 	plt.title('model absolute loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
-
-	plt.savefig('figures/1crnA5H_ros_abs_loss.png')
+	plt.savefig('figures/1crnA10H_ros_abs_loss.png')
 	plt.clf()
-
 	a = [math.sqrt(e) for e in history.history['loss']]
 	plt.plot(a / np.mean(y_train))
-	#a = [math.sqrt(e) for e in history.history['val_loss']]
-	#plt.plot(a / np.mean(y_test))
+	a = [math.sqrt(e) for e in history.history['val_loss']]
+	plt.plot(a / np.mean(y_test))
 	plt.title('model relative loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
-
-	plt.savefig('figures/1crnA5H_ros_rel_loss.png')
+	plt.savefig('figures/1crnA10H_ros_rel_loss.png')
 
 	#plt.show()
 

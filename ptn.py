@@ -384,11 +384,6 @@ class ptn:
 				#if (atom_number != 0 and atom_number < len(p_.aa()) - 2):
 				#	mat[x][y][z].diangle = dihedreal_angles[atom_number - 1]
 
-				# Create distance vector from the atoms points to all of the other points. Normalize those into vectors and find and store the minimum distance.
-				
-
-				
-
 				# Count the number of atoms within a certain threshold distance.
 
 				atom_distances = find_atom_distances(atom.get_coord(), atoms_shifted)
@@ -404,6 +399,7 @@ class ptn:
 
 					coords = mat[x][y][z].coords
 
+					# Create distance vector from the atoms points to all of the other points. Normalize those into vectors and find and store the minimum distance.
 					distance_to_nearest_atom, nearest_atom_number = find_nearest_atom(coords, atoms_shifted)
 
 					mat[x][y][z].distance_to_nearest_atom = distance_to_nearest_atom
@@ -454,11 +450,11 @@ class ptn:
 				scores['dm_score'] = [score2]
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
-			p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy.csv')
+			p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
 
 
 	# This function stores a data_entry consisting of the 3D matrix with its relative score
-	def save_data(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy.csv'):
+	def save_data(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy_local_dir.csv'):
 		# If no file is provided, create a temporary named file in the ptndata directory. Otherwise if pdb is in the file name, create file named the same as the .pdb file as an obj file.
 		if file == None:
 			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
@@ -474,7 +470,9 @@ class ptn:
 
 		# Create score entry using file name without the extension and the score of the protein. Append this to the csv file storing scores.
 		dm = None
-		score_entry = pd.DataFrame({'file': [file]})
+		file_ = file.split('/')
+		file_ = '/'.join(file_[len(file_) - 2:])
+		score_entry = pd.DataFrame({'file': [file_]})
 		for i in range(len(scores.columns)):
 			if scores.columns[i] == 'dm_score':
 				dm = scores['dm_score']
@@ -539,12 +537,12 @@ class ptn:
 
 for i in range(1000):
 
-	start = int(random.random() * 8) + 7
-	end = start + 4
+	start = int(random.random() * 3) + 7
+	end = start + 9
 
 	p = ptn(f'1crnA{start}-{end}')
 
-	p.generate_decoy_messup_scores(1, native_rate = 0.1, start = 100 + i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_small/')
+	p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
 
 
 # Below is script
