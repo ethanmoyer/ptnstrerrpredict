@@ -35,15 +35,11 @@ BACTH_SIZE = 16
 # Given an object loaded matrix of grid points, return a logical matrix representing atomic positions
 def grid2logical(mat):
 	a = len(mat)
-	t = 0
 	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
 	for i in range(len(mat)):
 		for j in range(len(mat[0])):
 			for k in range(len(mat[0][0])):
-				if mat[i][j][k].occupancy != 0:
-					t += 1
 				mat_[i][j][k] = mat[i][j][k].occupancy
-	print(t)
 	return mat_
 
 
