@@ -411,13 +411,6 @@ class ptn:
 
 					mat[x][y][z].occupancy = calculate_atom_occupacy(nearest_atom, distance_to_nearest_atom)
 
-					#print(mat[x][y][z].coords)
-					#print(nearest_atom)
-					#print(distance_to_nearest_atom)
-					#print(mat[x][y][z].occupancy)
-					#if z == 5:
-					#	quit()
-
 		return mat
 
 
@@ -535,7 +528,7 @@ class ptn:
 		return(p_list)
 
 
-for i in range(1000):
+for i in range(10, 11):
 
 	start = int(random.random() * 3) + 7
 	end = start + 9

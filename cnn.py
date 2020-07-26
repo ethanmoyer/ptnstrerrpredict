@@ -23,9 +23,6 @@ from grid_point import grid_point
 import matplotlib.pyplot as plt
 
 import math
-# size test
-# getsizeof(feature_set)*getsizeof(feature_set[0])*getsizeof(feature_set[0][0])*getsizeof(feature_set[0][0][0])*getsizeof(feature_set[0][0][0][0][0])
-# 75698798592000
 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
@@ -38,11 +35,15 @@ BACTH_SIZE = 16
 # Given an object loaded matrix of grid points, return a logical matrix representing atomic positions
 def grid2logical(mat):
 	a = len(mat)
+	t = 0
 	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
 	for i in range(len(mat)):
 		for j in range(len(mat[0])):
 			for k in range(len(mat[0][0])):
+				if mat[i][j][k].occupancy != 0:
+					t += 1
 				mat_[i][j][k] = mat[i][j][k].occupancy
+	print(t)
 	return mat_
 
 
@@ -94,11 +95,11 @@ def find_bounds(mat):
 	x_min = min(x)
 	x_max = max(x)
 
-	y = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[x_min][i]) != 0.0).any()]
+	y = [i for i in range(CUBIC_LENGTH_CONSTRAINT) for j in range(x_min, x_max) if (np.array(mat[j][i]) != 0.0).any()]
 	y_min = min(y)
 	y_max = max(y)
 
-	z = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[x_min][y_min][i]) != 0.0).any()]
+	z = [i for i in range(CUBIC_LENGTH_CONSTRAINT) for j in range(x_min, x_max) for k in range(y_min, y_max) if (np.array(mat[j][k][i]) != 0.0).any()]
 	z_min = min(z)
 	z_max = max(z)
 
@@ -143,34 +144,27 @@ def load_data(file_handler, block_size=10000):
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
-
 	# Generate the CNN model
 	def generate_model(c, input_shape):
 		model = Sequential()
-		model.add(Conv3D(3, 8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
-		model.add(BatchNormalization())
-		model.add(Dense(8, activation='relu'))
-		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
-		model.add(Conv3D(3, 16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(16, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
-		model.add(Conv3D(3, 32, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(32, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
-		model.add(Dropout(0.5))
+		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(64, activation='relu'))
+		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
+		model.add(Dropout(0.2))
 		model.add(Flatten())
 		model.add(Dense(1))
-
 		# Compiles the model
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
-
 		model.summary()
-
 		return model
 
 	def generate_model_contact_map(c, input_shape, output_shape):
@@ -179,35 +173,47 @@ class cnn:
 		model.add(BatchNormalization())
 		model.add(Dense(8, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
 		model.add(Conv3D(3, 16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(16, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
 		model.add(Conv3D(3, 32, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(32, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-
 		model.add(Dropout(0.5))
 		model.add(Flatten())
 		model.add(Dense(output_shape[2] * output_shape[2]))
 		model.add(Reshape(output_shape[1:]))
-
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
-
 		model.summary()
-
 		return model
+
+def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
+	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
+	atom_pos = []
+	for i, file in enumerate(files[:samples]):
+		print(file)
+		print('Percentage complete: ', round(i / len(files) * 100, 2), '%', sep='')
+		if all([file not in energy_file for energy_file in energy_scores.index]):
+			continue
+
+		entry = pickle.load(open(fdir + file, 'rb'))
+		new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
+		x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
+		print(f'x: [{x_min},{x_max}]\ty: [{y_min},{y_max}]\tx: [{z_min},{z_max}]')
+		atom_pos = get_all_atoms(entry.mat, atom_pos)
+	atom_pos.append('None')
+
+	return atom_pos, x_min, y_min, z_min, x_max, y_max, z_max
 
 start_time = time()
 
-samples = 1000
+samples = 10
 
 # Path name for storing all of the data
-fdir = 'ptndata_10H/'
-#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+#fdir = 'ptndata_10H/'
+fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -219,94 +225,70 @@ atom_type_data = pd.Series(atom_type)
 atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 
 # Loading files
-energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv')
+energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
 energy_scores.sort_values(by=['file'], inplace=True)
 
-# Initialize a list of enzymes
-atom_pos = []
-
-dm_output = []
-i = 0
-print('Loading positional atom types, distance matrix, and required size of window ...')
+print('Detemining positional atom types and smallest window size of the data ...')
 # Loop through each file and make a list of all of the atoms present.
 
-x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
-for file in files[:samples]:
-	print('File complete:', i / len(files) * 100)
-
-	if all([file not in energy_file for energy_file in energy_scores['file']]):
-		continue
-
-	i += 1
-	filehandler = open(fdir + file, 'rb') 
-	entry = pickle.load(filehandler)
-	new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
-	x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
-
-	atom_pos = get_all_atoms(entry.mat, atom_pos)
-	dm_output.append(entry.dm)
+atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(samples, energy_scores, fdir)
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
-atom_pos.append('None')
 atom_pos_data = pd.Series(atom_pos)
 atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
 # Initialize the feature set
-feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(samples)])
+feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(1)])
 
-#feature_set = []
+# Define input and output shape
+input_shape = feature_set.shape
+#output_shape = y.shape
 
-if True:
-	print('Loading main features...')
-	q = 0
-	# Load all of the objects into the feature set 
-	for file in files[:samples]:
-		print('File complete:' , q / len(files) * 100)
-		
-		if all([file not in energy_file for energy_file in energy_scores['file']]):
-			continue
+cnn = cnn()
+model = cnn.generate_model(input_shape)
 
-		filehandler = open(fdir + file, 'rb') 
-		entry = pickle.load(filehandler)
-		a = grid2logical(entry.mat)
-		b = grid2atomtype(entry.mat)
-		c = grid2atom(entry.mat)
+print('Loading main features ...')
+# Load all of the objects into the feature set 
+for q, file in enumerate(file for file in files[:samples] if any([file in energy_file for energy_file in energy_scores.index])):
 
-		# Append all of the feature categories into dimension
-		#sample = [[[ [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist() for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)]
+	entry = pickle.load(open(fdir + file, 'rb'))
 
-		# Append each sample to the feature set
-		for i in range(len(feature_set)):
-			for j in range(len(feature_set[0])):
-				for k in range(len(feature_set[0][0])):
-					feature_set[q][i][j][k] = [a[i][j][k]] + b[i][j][k].tolist() + c[i][j][k].tolist()
-		i += q
+	print('Percentage complete: ' , round(q / len(files) * 100, 2), '%', sep='')
+	
+	a = grid2logical(entry.mat)
+	b = grid2atomtype(entry.mat)
+	c = grid2atom(entry.mat)
+	dm_output = entry.dm
+	t = 0
+	# Append all of the feature categories into dimension
+	for i in range(len(feature_set[0])):
+		for j in range(len(feature_set[0][0])):
+			for k in range(len(feature_set[0][0][0])):
+				if a[z_min + i][y_min + j][x_min + k] != 0:
+					t += 1
+				feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
+	print(file)
+	print(t)
+	quit()
+	y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
 
-if True:
+	history = model.fit(feature_set, np.array([y]), epochs = 1, batch_size = 1, verbose=1)
+
+if False:
 	# Load energy scores from csv and sort them according to file name
-
-	# Split features and outputs
-	#X = np.array(feature_set)
 	X = feature_set
 	#use this later y = energy_scores['mse_score'].values # rosetta_score,mse_score
 	y = energy_scores['rosetta_score'].values[:samples]
-
 	#y = dm_output
 	#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 	#y = y.astype(float)
-
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
 	print('Running model...')
-
-	cnn = cnn()
-
-	input_shape = (y.shape[0], x_max - x_min, y_max - y_min, z_max - z_min, X.shape[4])
-	output_shape = y.shape
-	model = cnn.generate_model(input_shape)
+	
 
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
-if True:
-	history = model.fit(X_train, y_train, epochs = 10, batch_size = 10, verbose=1, validation_data=(X_test, y_test))
+if False:
+	#history = model.fit(X_train, y_train, epochs = 1, batch_size = 1, verbose=1, validation_data=(X_test, y_test))
 	print('Time elapsed:', time() - start_time)
 
 
