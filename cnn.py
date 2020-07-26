@@ -208,7 +208,7 @@ def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
 
 start_time = time()
 
-samples = 10
+samples = 1000
 
 # Path name for storing all of the data
 fdir = 'ptndata_10H/'
