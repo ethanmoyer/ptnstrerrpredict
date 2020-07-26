@@ -193,7 +193,6 @@ def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
 	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 	atom_pos = []
 	for i, file in enumerate(files[:samples]):
-		print(file)
 		print('Percentage complete: ', round(i / len(files) * 100, 2), '%', sep='')
 		if all([file not in energy_file for energy_file in energy_scores.index]):
 			continue
@@ -201,7 +200,7 @@ def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
 		entry = pickle.load(open(fdir + file, 'rb'))
 		new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
 		x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
-		print(f'x: [{x_min},{x_max}]\ty: [{y_min},{y_max}]\tx: [{z_min},{z_max}]')
+		#print(f'x: [{x_min},{x_max}]\ty: [{y_min},{y_max}]\tx: [{z_min},{z_max}]')
 		atom_pos = get_all_atoms(entry.mat, atom_pos)
 	atom_pos.append('None')
 
@@ -267,9 +266,7 @@ for q, file in enumerate(file for file in files[:samples] if any([file in energy
 				if a[z_min + i][y_min + j][x_min + k] != 0:
 					t += 1
 				feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
-	print(file)
-	print(t)
-	quit()
+
 	y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
 
 	history = model.fit(feature_set, np.array([y]), epochs = 1, batch_size = 1, verbose=1)

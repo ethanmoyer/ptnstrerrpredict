@@ -415,7 +415,7 @@ class ptn:
 
 
 	# Generate random data by messing up the original protein structure, calculating the energy using pyrosseta, and rotating it a random amount. Then save the score and matrix the data directory.
-	def generate_decoy_messup_scores(p, n = 10, native_rate = 0, start = 0, score_types = [Score.rosetta, Score.mse_dm, Score.dm], fdir = 'ptndata/', decoys = None):
+	def generate_decoy_messup_scores(p, n = 10, native_rate = 0, start = 0, score_types = [Score.rosetta, Score.mse_dm, Score.dm], fdir = 'ptndata/', decoys = None, save = True):
 		if decoys is not None:
 			n = len(decoys)
 
@@ -443,7 +443,10 @@ class ptn:
 				scores['dm_score'] = [score2]
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
-			p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
+			if save:
+				p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
+			else:
+				return mat, scores
 
 
 	# This function stores a data_entry consisting of the 3D matrix with its relative score
