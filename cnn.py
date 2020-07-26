@@ -211,8 +211,8 @@ start_time = time()
 samples = 10
 
 # Path name for storing all of the data
-#fdir = 'ptndata_10H/'
-fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+fdir = 'ptndata_10H/'
+#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
