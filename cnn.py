@@ -24,7 +24,13 @@ import matplotlib.pyplot as plt
 
 import math
 
-# For HPC pip3 install --user --upgrade tensorflow
+# For HPC 
+# qsubi -pe smp 4 -l m_mem_free=5G -l h_vmem=5G
+# screen -S ptn
+# module load python/3.6
+# source venv/bin/activate
+# pip3 install --user --upgrade tensorflow
+# python3.6 -i cnn.py
 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
@@ -246,7 +252,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 
 
 start_time = time()
-total_samples = 1000
+total_samples = 10
 validation_split = 0.2
 
 training_samples = int(total_samples * (1 - validation_split))
