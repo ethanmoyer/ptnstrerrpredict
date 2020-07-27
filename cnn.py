@@ -255,7 +255,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 
 
 start_time = time()
-total_samples = 2
+total_samples = 10
 validation_split = 0.2
 
 training_samples = int(total_samples * (1 - validation_split))
