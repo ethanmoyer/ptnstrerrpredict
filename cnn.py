@@ -224,7 +224,10 @@ def sample_gen(files, fdir='ptndata_10H/'):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
 					feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
-		yield (feature_set, [y])
+
+		y = np.array(y)
+		y = y.reshape(-1,1)	
+		yield (feature_set, np.array(y))
 
 
 def sample_loader(files, samples, fdir='ptndata_10H/'):
@@ -252,7 +255,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 
 
 start_time = time()
-total_samples = 10
+total_samples = 2
 validation_split = 0.2
 
 training_samples = int(total_samples * (1 - validation_split))
@@ -260,7 +263,7 @@ validation_samples = int(total_samples * validation_split)
 
 # Path name for storing all of the data
 fdir = 'ptndata_10H/'
-#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
 files = getfileswithname(fdir, 'obj')
@@ -302,8 +305,8 @@ model = cnn.generate_model(input_shape)
 
 print('Running model ...')
 # Load all of the objects into the feature set 
-#, validation_data=sample_loader(validation_files, validation_samples, fdir)
-history = model.fit(sample_gen(training_files, fdir), epochs = 10, verbose=1,use_multiprocessing=True) #
+
+history = model.fit(sample_gen(training_files, fdir), epochs = 10, verbose=1,use_multiprocessing=True) #, validation_data=sample_loader(validation_files, validation_samples, fdir)
 print('Time elapsed:', time() - start_time)
 
 
