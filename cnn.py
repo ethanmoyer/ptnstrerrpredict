@@ -255,7 +255,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 
 
 start_time = time()
-total_samples = 10
+total_samples = 1000
 validation_split = 0.2
 
 training_samples = int(total_samples * (1 - validation_split))
@@ -306,7 +306,7 @@ model = cnn.generate_model(input_shape)
 print('Running model ...')
 # Load all of the objects into the feature set 
 
-history = model.fit(sample_gen(training_files, fdir), epochs = 8,steps_per_epoch=1, verbose=1, use_multiprocessing=True, validation_data=sample_loader(validation_files, validation_samples, fdir)) #
+history = model.fit(sample_gen(training_files, fdir), epochs = training_samples,steps_per_epoch=1, verbose=1, use_multiprocessing=True, validation_data=sample_loader(validation_files, validation_samples, fdir)) #
 print('Time elapsed:', time() - start_time)
 
 
