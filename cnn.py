@@ -185,14 +185,11 @@ class cnn:
 		model.summary()
 		return model
 
-def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
+def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 	atom_pos = []
-	for i, file in enumerate(files[:samples]):
+	for i, file in enumerate(files):
 		print('Percentage complete: ', round(i / len(files) * 100, 2), '%', sep='')
-		if all([file not in energy_file for energy_file in energy_scores.index]):
-			continue
-
 		entry = pickle.load(open(fdir + file, 'rb'))
 		new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max = find_bounds(grid2logical(entry.mat))
 		x_min, y_min, z_min, x_max, y_max, z_max = update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max)
@@ -202,9 +199,56 @@ def load_feature_dimensions(samples, energy_scores, fdir = 'ptndata_10H/'):
 
 	return atom_pos, x_min, y_min, z_min, x_max, y_max, z_max
 
-start_time = time()
 
-samples = 1000
+def sample_gen(files, fdir='ptndata_10H/'):
+	for q, file in enumerate(files):
+		entry = pickle.load(open(fdir + file, 'rb'))
+		a = grid2logical(entry.mat)
+		b = grid2atomtype(entry.mat)
+		c = grid2atom(entry.mat)
+		dm_output = entry.dm
+		# rosetta_score, mse_score
+		#y = dm_output
+		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
+		#y = y.astype(float)
+		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		for i in range(len(feature_set[0])):
+			for j in range(len(feature_set[0][0])):
+				for k in range(len(feature_set[0][0][0])):
+					feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
+		yield (feature_set, [y])
+
+
+def sample_loader(files, samples, fdir='ptndata_10H/'):
+	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(samples)])
+	y = []
+	for q, file in enumerate(files):
+		entry = pickle.load(open(fdir + file, 'rb'))
+		a = grid2logical(entry.mat)
+		b = grid2atomtype(entry.mat)
+		c = grid2atom(entry.mat)
+		dm_output = entry.dm
+		# rosetta_score, mse_score
+		#y = dm_output
+		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
+		#y = y.astype(float)
+		y.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
+		for i in range(len(feature_set[0])):
+			for j in range(len(feature_set[0][0])):
+				for k in range(len(feature_set[0][0][0])):
+					
+					feature_set_[q][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
+	y = np.array(y)
+	y = y.reshape(-1,1)		
+	return (feature_set_, y)
+
+
+start_time = time()
+total_samples = 1000
+validation_split = 0.2
+
+training_samples = int(10 * (1 - validation_split))
+validation_samples = int(10 * validation_split)
 
 # Path name for storing all of the data
 fdir = 'ptndata_10H/'
@@ -214,19 +258,24 @@ print('Loading files...')
 files = getfileswithname(fdir, 'obj')
 files.sort()
 
+files = files[:10]
+
+energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
+
+files = [file for file in files if 'ptndata_10H/' + file in energy_scores.index]
+
+training_files = files[:training_samples]
+validation_files = files[training_samples:]
+
 # Index for the four main types of atoms and None that will indexed when looping through each entry
 atom_type = ['C', 'N', 'O', 'S', 'None']
 atom_type_data = pd.Series(atom_type)
 atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 
-# Loading files
-energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
-energy_scores.sort_values(by=['file'], inplace=True)
-
 print('Detemining positional atom types and smallest window size of the data ...')
 # Loop through each file and make a list of all of the atoms present.
 
-atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(samples, energy_scores, fdir)
+atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(files, fdir)
 
 # Format the position specific atom list so it can be used as one-hot encoding in the network
 atom_pos_data = pd.Series(atom_pos)
@@ -241,48 +290,13 @@ input_shape = feature_set.shape
 
 cnn = cnn()
 model = cnn.generate_model(input_shape)
-
-print('Loading main features ...')
-# Load all of the objects into the feature set 
-for q, file in enumerate(file for file in files[:samples] if any([file in energy_file for energy_file in energy_scores.index])):
-
-	entry = pickle.load(open(fdir + file, 'rb'))
-
-	print('Percentage complete: ' , round(q / len(files) * 100, 2), '%', sep='')
-	
-	a = grid2logical(entry.mat)
-	b = grid2atomtype(entry.mat)
-	c = grid2atom(entry.mat)
-	dm_output = entry.dm
-	t = 0
-	# Append all of the feature categories into dimension
-	for i in range(len(feature_set[0])):
-		for j in range(len(feature_set[0][0])):
-			for k in range(len(feature_set[0][0][0])):
-				if a[z_min + i][y_min + j][x_min + k] != 0:
-					t += 1
-				feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
-
-	y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
-
-	history = model.fit(feature_set, np.array([y]), epochs = 1, batch_size = 1, verbose=1)
-
-if False:
-	# Load energy scores from csv and sort them according to file name
-	X = feature_set
-	#use this later y = energy_scores['mse_score'].values # rosetta_score,mse_score
-	y = energy_scores['rosetta_score'].values[:samples]
-	#y = dm_output
-	#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
-	#y = y.astype(float)
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20)
-	print('Running model...')
-	
-
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
-if False:
-	#history = model.fit(X_train, y_train, epochs = 1, batch_size = 1, verbose=1, validation_data=(X_test, y_test))
-	print('Time elapsed:', time() - start_time)
+
+print('Running model ...')
+# Load all of the objects into the feature set 
+
+history = model.fit(sample_gen(training_files, fdir), epochs = 10, verbose=1, validation_data=sample_loader(validation_files, validation_samples, fdir),use_multiprocessing=True) #
+print('Time elapsed:', time() - start_time)
 
 
 if False:
