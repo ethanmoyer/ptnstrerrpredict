@@ -24,6 +24,8 @@ import matplotlib.pyplot as plt
 
 import math
 
+# For HPC pip3 install --user --upgrade tensorflow
+
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
@@ -247,8 +249,8 @@ start_time = time()
 total_samples = 1000
 validation_split = 0.2
 
-training_samples = int(10 * (1 - validation_split))
-validation_samples = int(10 * validation_split)
+training_samples = int(total_samples * (1 - validation_split))
+validation_samples = int(total_samples * validation_split)
 
 # Path name for storing all of the data
 fdir = 'ptndata_10H/'
@@ -258,7 +260,7 @@ print('Loading files...')
 files = getfileswithname(fdir, 'obj')
 files.sort()
 
-files = files[:10]
+files = files[:total_samples]
 
 energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
 
