@@ -305,8 +305,8 @@ model = cnn.generate_model(input_shape)
 
 print('Running model ...')
 # Load all of the objects into the feature set 
-
-history = model.fit(sample_gen(training_files, fdir), epochs = training_samples,steps_per_epoch=1, verbose=1, use_multiprocessing=True, validation_data=sample_loader(validation_files, validation_samples, fdir)) #
+validation_data = sample_loader(validation_files, validation_samples, fdir)
+history = model.fit(sample_gen(training_files, fdir), batch_size=10, epochs = 100, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, steps_per_epoch=1
 print('Time elapsed:', time() - start_time)
 
 
