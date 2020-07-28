@@ -27,7 +27,7 @@ import math
 # For HPC 
 # qsubi -pe smp 4 -l m_mem_free=5G -l h_vmem=5G
 # screen -S ptn
-# module load python/3.6
+# module load python/3.6.8
 # source venv/bin/activate
 # pip3 install --user --upgrade tensorflow
 # python3.6 -i cnn.py
@@ -234,6 +234,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(samples)])
 	y = []
 	for q, file in enumerate(files):
+		print('Percentage complete: ', round(q / len(files) * 100, 2), '%', sep='')
 		entry = pickle.load(open(fdir + file, 'rb'))
 		a = grid2logical(entry.mat)
 		b = grid2atomtype(entry.mat)
@@ -303,10 +304,12 @@ cnn = cnn()
 model = cnn.generate_model(input_shape)
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
 
-print('Running model ...')
+print('Generating validation data ...')
 # Load all of the objects into the feature set 
 validation_data = sample_loader(validation_files, validation_samples, fdir)
-history = model.fit(sample_gen(training_files, fdir), batch_size=10, epochs = 100, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, steps_per_epoch=1
+
+print('Running model on training data...')
+history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=10, batch_size=10, epochs = 100, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
 print('Time elapsed:', time() - start_time)
 
 
