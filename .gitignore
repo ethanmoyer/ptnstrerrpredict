@@ -1,5 +1,6 @@
 __pycache__/grid_point.cpython-37.pyc
 cnn_cont_data/.DS_Store
+/__pycache__/*
 
 /ptndata_10H/*
 ptndata_10H.tar.gz
