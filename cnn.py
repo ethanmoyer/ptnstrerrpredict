@@ -325,7 +325,7 @@ if True:
 	plt.savefig('figures/1crnA10H_ros_abs_loss.png')
 	plt.clf()
 
-if False
+if False:
 	a = [math.sqrt(e) for e in history.history['loss']]
 	plt.plot(a / np.mean(y_train))
 	a = [math.sqrt(e) for e in history.history['val_loss']]
