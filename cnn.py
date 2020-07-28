@@ -151,17 +151,17 @@ class cnn:
 	# Generate the CNN model
 	def generate_model(c, input_shape):
 		model = Sequential()
-		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv3D(filters=3, kernel_size=8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(8, activation='relu'))
+		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
+		model.add(Conv3D(filters=3, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(16, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv3D(filters=3, kernel_size=32, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
 		model.add(Dense(32, activation='relu'))
-		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
-		model.add(Conv3D(filters=6, kernel_size=16, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
-		model.add(BatchNormalization())
-		model.add(Dense(64, activation='relu'))
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
 		model.add(Dropout(0.2))
 		model.add(Flatten())
@@ -309,12 +309,12 @@ print('Generating validation data ...')
 validation_data = sample_loader(validation_files, validation_samples, fdir)
 
 print('Running model on training data...')
-history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=10, batch_size=10, epochs = 100, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
+history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=10, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
 print('Time elapsed:', time() - start_time)
 
 
-if False:
-	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']], 'rel_loss': [history.history['loss'] / np.mean(y_train)], 'rel_val_loss': [history.history['val_loss'] / np.mean(y_test)]})
+if True:
+	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
 	data.to_csv('figures/1crnA5H_mse.csv')
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
@@ -324,6 +324,8 @@ if False:
 	plt.legend(['train', 'test'], loc='upper left')
 	plt.savefig('figures/1crnA10H_ros_abs_loss.png')
 	plt.clf()
+
+if False
 	a = [math.sqrt(e) for e in history.history['loss']]
 	plt.plot(a / np.mean(y_train))
 	a = [math.sqrt(e) for e in history.history['val_loss']]
