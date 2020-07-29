@@ -308,7 +308,7 @@ print('Generating validation data ...')
 validation_data = sample_loader(validation_files, validation_samples, fdir)
 
 print('Running model on training data...')
-history = model.fit(sample_gen(training_files, fdir), batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
+history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=4, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
 print('Time elapsed:', time() - start_time)
 
 
