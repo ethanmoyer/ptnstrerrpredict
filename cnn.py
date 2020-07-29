@@ -219,7 +219,7 @@ def sample_gen(files, fdir='ptndata_10H/'):
 		#y = dm_output
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
-		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		y = energy_scores.loc[fdir + file]['rosetta_score']
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
@@ -244,7 +244,7 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 		#y = dm_output
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
-		y.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
+		y.append(energy_scores.loc[fdir + file]['rosetta_score'])
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
@@ -263,7 +263,7 @@ training_samples = int(total_samples * (1 - validation_split))
 validation_samples = int(total_samples * validation_split)
 
 # Path name for storing all of the data
-fdir = 'ptndata_5H/'
+fdir = 'ptndata_small/'
 #fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
@@ -274,7 +274,7 @@ files = files[:total_samples]
 
 energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
 
-files = [file for file in files if 'ptndata_10H/' + file in energy_scores.index]
+files = [file for file in files if fdir + file in energy_scores.index]
 
 training_files = files[:training_samples]
 validation_files = files[training_samples:]
