@@ -231,7 +231,7 @@ def sample_gen(files, fdir='ptndata_10H/'):
 
 
 def sample_loader(files, samples, fdir='ptndata_10H/'):
-	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(samples)])
+	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(len(files))])
 	y = []
 	for q, file in enumerate(files):
 		print('Percentage complete: ', round(q / len(files) * 100, 2), '%', sep='')
@@ -248,7 +248,6 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
-					
 					feature_set_[q][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
 	y = np.array(y)
 	y = y.reshape(-1,1)		
@@ -309,7 +308,7 @@ print('Generating validation data ...')
 validation_data = sample_loader(validation_files, validation_samples, fdir)
 
 print('Running model on training data...')
-history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=10, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
+history = model.fit(sample_gen(training_files, fdir), batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
 print('Time elapsed:', time() - start_time)
 
 
