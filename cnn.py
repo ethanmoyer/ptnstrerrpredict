@@ -263,7 +263,7 @@ training_samples = int(total_samples * (1 - validation_split))
 validation_samples = int(total_samples * validation_split)
 
 # Path name for storing all of the data
-fdir = 'ptndata_10H/'
+fdir = 'ptndata_5H/'
 #fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 print('Loading files...')
 # Load all of the obj file types and sort them by file name
@@ -315,14 +315,14 @@ print('Time elapsed:', time() - start_time)
 
 if True:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
-	data.to_csv('figures/1crnA5H_mse.csv')
+	data.to_csv('figures/1crn5H0_mse.csv')
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
 	plt.title('model absolute loss')
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
-	plt.savefig('figures/1crnA10H_ros_abs_loss.png')
+	plt.savefig('figures/1crnA5H0_ros_abs_loss.png')
 	plt.clf()
 
 if False:
@@ -334,7 +334,7 @@ if False:
 	plt.ylabel('loss')
 	plt.xlabel('epoch')
 	plt.legend(['train', 'test'], loc='upper left')
-	plt.savefig('figures/1crnA10H_ros_rel_loss.png')
+	plt.savefig('figures/1crnA5H_ros_rel_loss.png')
 
 	#plt.show()
 
