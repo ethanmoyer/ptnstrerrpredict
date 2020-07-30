@@ -3,5 +3,6 @@ cnn_cont_data/.DS_Store
 /__pycache__/*
 
 /ptndata_10H/*
+/ptndata_small/*
 ptndata_10H.tar.gz
 ptndata_5H.tar.gz
