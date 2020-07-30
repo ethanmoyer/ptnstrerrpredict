@@ -314,7 +314,7 @@ print('Time elapsed:', time() - start_time)
 
 if True:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
-	data.to_csv('figures/1crn5H0_mse.csv')
+	data.to_csv('figures/1crn5AH0_mse.csv')
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
 	plt.title('model absolute loss')

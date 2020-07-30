@@ -15,12 +15,15 @@ sudo make install
 python3 -V
 '''
 from Bio.PDB import *
+from Bio.Data.SCOPData import protein_letters_3to1
 
 from pyrosetta import *
 from pyrosetta.toolbox import *
 
 from scipy.spatial import distance_matrix
 from sklearn.metrics import mean_squared_error 
+from sklearn import preprocessing
+
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -531,7 +534,37 @@ class ptn:
 		return(p_list)
 
 
-for i in range(10, 11):
+res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
+
+label_encoder = preprocessing.LabelEncoder()
+
+	def generate_1d_dm(p):
+		res_names = [res.get_resname() for res in p.protein().get_residues()]
+		res_codes = [protein_letters_3to1[res] for res in res_names]
+
+		all_res_codes = list(res_codes2ordinal.keys())
+
+		ordinal_features = []
+		one_hot_features = []
+
+		res_one_hot_encoder = np.array(pd.get_dummies(all_res_codes))
+
+		for res in resi_codes:
+			try:
+				ordinal_features.append(res_codes2ordinal[res])
+				one_hot_features.append(res_one_hot_encoder[all_res_codes.index(res)])
+			except:
+				ordinal_features.append(0)
+				one_hot_features.append([0] * 20)
+
+		dm = p.generate_distance_matrix()
+
+		return ordinal_features, one_hot_features, dm
+
+
+p = ptn('1crn')
+
+for i in range(0, 0):
 
 	start = int(random.random() * 3) + 7
 	end = start + 9
@@ -548,17 +581,9 @@ if (False):
 
 	for id in ids:
 		p = ptn(id[0] + 'A0-10')
-		p.generate_decoy_messup_score_mse_mat(100, '/Users/data/ptnstrerrpredict/ptndata/')
-
-	for p_decoy in p.load_decoys():
-		mat = p_decoy.ptn2grid(p_decoy.aa())
-		score0 = p_decoy.mse_contact_calc(p)
-		score1, _ = p.energy_calc()
-		p_decoy.save_data(mat, pd.DataFrame({'rosetta_score': [score0], 'mse_score': [score1]}), file = p_decoy.loc, energy_file = fdir + '/energy.csv')
 
 	# Use data with one alpha helix
 	# DNA structure
-	p = ptn('103dB')
 
 
 	#ahmet: test ptn() for an example NMR file.
