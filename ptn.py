@@ -24,7 +24,6 @@ from scipy.spatial import distance_matrix
 from sklearn.metrics import mean_squared_error 
 from sklearn import preprocessing
 
-
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -69,7 +68,6 @@ class ptn:
 		else:
 			# 1crnA 5-10'
 			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
-
 			p.info = info.group()
 			p.id = info.group('id')
 			p.chain = info.group('chain')
@@ -140,6 +138,10 @@ class ptn:
 
 		# Loop through all of the atoms in the protein structure
 		for atom in p.protein().get_atoms():
+
+			if atom.is_disordered() or atom.get_altloc() == 'A':
+				continue
+
 			atom_chain = Selection.unfold_entities(atom, 'C')[0].get_id()
 			atom_res = Selection.unfold_entities(atom, 'R')[0]
 			
@@ -164,7 +166,6 @@ class ptn:
 
 		# Loop through all of the residues in the protein.
 		for a in aa_:
-
 			# Loop through all of the atoms in each of the residues
 			for atom in a['atoms']: 
 				atom_id = atom.get_id()
@@ -449,22 +450,21 @@ class ptn:
 				return mat, scores
 
 
-	res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
-
-	label_encoder = preprocessing.LabelEncoder()
-
 	def generate_1d_dm(p):
-		res_names = [res.get_resname() for res in p.protein().get_residues()]
-		res_codes = [protein_letters_3to1[res] for res in res_names]
+		res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
+
+		res_names = [res.get_resname() for i, res in enumerate(p.protein().get_residues()) if i >= p.fromres and i < p.tores]
 
 		all_res_codes = list(res_codes2ordinal.keys())
+
+		res_codes = [protein_letters_3to1[res] if res in protein_letters_3to1.keys() else 'X' for res in res_names]
 
 		ordinal_features = []
 		one_hot_features = []
 
 		res_one_hot_encoder = np.array(pd.get_dummies(all_res_codes))
 
-		for res in resi_codes:
+		for res in res_codes:
 			try:
 				ordinal_features.append(res_codes2ordinal[res])
 				one_hot_features.append(res_one_hot_encoder[all_res_codes.index(res)])
@@ -473,6 +473,8 @@ class ptn:
 				one_hot_features.append([0] * 20)
 
 		dm = p.generate_distance_matrix()
+
+		print()
 
 		return ordinal_features, one_hot_features, dm
 
@@ -526,7 +528,7 @@ class ptn:
 			file = fdir + p.info + '.obj'
 
 		# Create a data entry of the given matrix and dump it as aa .obj file.
-		data_entry_ = data_entry(ordinal_features=None, one_hot_features=None, dm = dm)
+		data_entry_ = data_entry(ordinal_features=ordinal_features, one_hot_features=one_hot_features, dm = dm)
 		filehandler = open(file, 'wb') 
 		pickle.dump(data_entry_, filehandler)
 
@@ -579,9 +581,10 @@ class ptn:
 		return(p_list)
 
 
-
-
-p = ptn('1crn')
+ids = pd.read_csv('training.txt').values
+for id in ids:
+	p = ptn(id[0] + 'A0-10')
+	p.save_1d_conv(file=p.info, fdir='ptndata_1dconv/')
 
 for i in range(0, 0):
 
@@ -592,14 +595,6 @@ for i in range(0, 0):
 
 	p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
 
-
-# Below is script
-if (False):
-
-	ids = pd.read_csv('training.txt').values
-
-	for id in ids:
-		p = ptn(id[0] + 'A0-10')
 
 	# Use data with one alpha helix
 	# DNA structure

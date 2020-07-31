@@ -94,6 +94,7 @@ def get_all_atoms(mat, atoms):
 	return list(set(atoms))
 
 
+# Given a matrix, return the minimum required dimensions in order to capture all non-zero values.
 def find_bounds(mat):
 	x = [i for i in range(CUBIC_LENGTH_CONSTRAINT) if (np.array(mat[i]) != 0.0).any()]
 	x_min = min(x)
@@ -110,6 +111,7 @@ def find_bounds(mat):
 	return x_min, y_min, z_min, x_max, y_max, z_max
 
 
+# Given new bounds and old bounds, return the proper updated bounds.
 def update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_max, x_min, y_min, z_min, x_max, y_max, z_max):
 	if new_x_min < x_min:
 		x_min = new_x_min
@@ -132,23 +134,12 @@ def update_bounds(new_x_min, new_y_min, new_z_min, new_x_max, new_y_max, new_z_m
 	return x_min, y_min, z_min, x_max, y_max, z_max
 
 
-def load_data(file_handler, block_size=10000):
-    block = []
-    for line in file_handler:
-        block.append(line)
-        if len(block) == block_size:
-            yield block
-            block = []
-
-    # don't forget to yield the last block
-    if block:
-        yield block
-
-
+# This cnn class stores all necessary functions of the cnn networks under investigation.
 class cnn:
 	def __init__(c, param = None):
 		c.param = param
-	# Generate the CNN model
+
+	# Generate 3D CNN model for rosetta or mse--basically for any single value output.
 	def generate_model_rosetta_mse(c, input_shape):
 		model = Sequential()
 		model.add(Conv3D(filters=3, kernel_size=8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
@@ -172,6 +163,7 @@ class cnn:
 		return model
 
 
+	# Generate 3D CNN model for contact map--for square output.
 	def generate_model_contact_map_3d(c, input_shape, output_shape):
 		model = Sequential()
 		model.add(Conv3D(3, 8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
@@ -195,6 +187,7 @@ class cnn:
 		return model
 
 
+	# Generate 1D CNN model for contact map.
 	def generate_model_contact_map_1d(c, input_shape, output_shape):
 		model = Sequential()
 		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
@@ -218,6 +211,7 @@ class cnn:
 		return model
 
 
+# Given a set of files storing entry objects and their directory location, return their feature dimensions such as the positional atom types and the bounds for the matrix.
 def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
 	atom_pos = []
@@ -233,6 +227,7 @@ def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 	return atom_pos, x_min, y_min, z_min, x_max, y_max, z_max
 
 
+# This is a generator function for files containing entry objects in the given location. These objects, due to their large size, are fed into the CNN one at a time as a memory optimization step.
 def sample_gen(files, fdir='ptndata_10H/'):
 	for q, file in enumerate(files):
 		entry = pickle.load(open(fdir + file, 'rb'))
@@ -255,7 +250,8 @@ def sample_gen(files, fdir='ptndata_10H/'):
 		yield (feature_set, np.array(y))
 
 
-def sample_loader(files, samples, fdir='ptndata_10H/'):
+# This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN.
+def sample_loader(files, fdir='ptndata_10H/'):
 	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(len(files))])
 	y = []
 	for q, file in enumerate(files):
@@ -279,9 +275,56 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 	return (feature_set_, y)
 
 
-NUMBER_OF_RESIDUES = 10 
+def select_region_dm(dm, shape):
+	return np.array([[[dm[i][j]] for i in range(shape[0])] for j in range(shape[1])])
 
-def conv1d_primary_seq_contact_map(fdir='ptndata_small/'):
+# Given the location of a directory with entry objects storing data for the 1D CNN, return the necessary features and target values for the network.
+def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
+	start_time = time()
+
+	files = getfileswithname(fdir, 'obj')
+	random.shuffle(files)
+
+	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
+	NUMBER_OF_ATOMS = 10 
+
+	total_samples = len(files)
+	validation_split = 0.2
+
+	training_samples = int(total_samples * (1 - validation_split))
+	validation_samples = int(total_samples * validation_split)
+
+	feature_set = np.array([ [ [0] for _ in range(20 * NUMBER_OF_ATOMS) ] for _ in range(total_samples) ])
+	y = []
+	for i, file in enumerate(files):
+		entry = pickle.load(open(fdir + file, 'rb'))
+
+		dm_output = select_region_dm(entry.dm, (NUMBER_OF_ATOMS, NUMBER_OF_ATOMS))
+		y.append(dm_output)
+
+		ordinal_features = entry.ordinal_features
+		one_hot_features = entry.one_hot_features
+
+		sample_atom_list = []
+		for j in range(NUMBER_OF_ATOMS):
+			sample_atom_list += one_hot_features[j].tolist()
+		feature_set[i] = np.array(sample_atom_list).reshape(-1, 1)
+
+	feature_set = np.array(feature_set)
+	input_shape = feature_set.shape
+
+	y = np.reshape(y, (len(y), len(y[0]), len(y[0][0])))
+	y = y.astype(float)
+	output_shape = y.shape
+
+	model = cnn.generate_model_contact_map_1d(input_shape, output_shape)
+	history = model.fit(feature_set, y, batch_size=10, epochs=10, verbose=1)
+
+cnn = cnn()
+conv1d_primary_seq_dm()
+
+def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
+
 	start_time = time()
 	total_samples = 1000
 	validation_split = 0.2
@@ -289,77 +332,57 @@ def conv1d_primary_seq_contact_map(fdir='ptndata_small/'):
 	training_samples = int(total_samples * (1 - validation_split))
 	validation_samples = int(total_samples * validation_split)
 
-	files = random.shuffle(getfileswithname(fdir, 'obj'))
+	# Path name for storing all of the data
+	fdir = 'ptndata_small/'
+	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+	print('Loading files...')
+	# Load all of the obj file types and sort them by file name
+	files = getfileswithname(fdir, 'obj')
+	files.sort()
 
-	feature_set = np.array([[[0] * 20 * NUMBER_OF_RESIDUES] for _ in range(len(files))])
+	files = files[:total_samples]
 
-	# How will we control the size of the output if different proteins will have a different number of atoms for 10 residues?
+	energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
 
-	for file in files:
-		entry = pickle.load(open(fdir + file, 'rb'))
-		dm_output = entry.dm
+	files = [file for file in files if fdir + file in energy_scores.index]
 
+	training_files = files[:training_samples]
+	validation_files = files[training_samples:]
 
+	# Index for the four main types of atoms and None that will indexed when looping through each entry
+	atom_type = ['C', 'N', 'O', 'S', 'None']
+	atom_type_data = pd.Series(atom_type)
+	atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
 
-start_time = time()
-total_samples = 1000
-validation_split = 0.2
+	print('Detemining positional atom types and smallest window size of the data ...')
+	# Loop through each file and make a list of all of the atoms present.
 
-training_samples = int(total_samples * (1 - validation_split))
-validation_samples = int(total_samples * validation_split)
+	atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(files, fdir)
 
-# Path name for storing all of the data
-fdir = 'ptndata_small/'
-#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
-print('Loading files...')
-# Load all of the obj file types and sort them by file name
-files = getfileswithname(fdir, 'obj')
-files.sort()
+	# Format the position specific atom list so it can be used as one-hot encoding in the network
+	atom_pos_data = pd.Series(atom_pos)
+	atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
 
-files = files[:total_samples]
+	# Initialize the feature set
+	feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(1)])
 
-energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
+	# Define input and output shape
+	input_shape = feature_set.shape
+	#output_shape = y.shape
 
-files = [file for file in files if fdir + file in energy_scores.index]
+	cnn = cnn()
+	model = cnn.generate_model_rosetta_mse(input_shape)
+	#model = cnn.generate_model_contact_map(input_shape, output_shape)
 
-training_files = files[:training_samples]
-validation_files = files[training_samples:]
+	print('Generating validation data ...')
+	# Load all of the objects into the feature set 
+	validation_data = sample_loader(validation_files, fdir)
 
-# Index for the four main types of atoms and None that will indexed when looping through each entry
-atom_type = ['C', 'N', 'O', 'S', 'None']
-atom_type_data = pd.Series(atom_type)
-atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
-
-print('Detemining positional atom types and smallest window size of the data ...')
-# Loop through each file and make a list of all of the atoms present.
-
-atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(files, fdir)
-
-# Format the position specific atom list so it can be used as one-hot encoding in the network
-atom_pos_data = pd.Series(atom_pos)
-atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
-
-# Initialize the feature set
-feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(1)])
-
-# Define input and output shape
-input_shape = feature_set.shape
-#output_shape = y.shape
-
-cnn = cnn()
-model = cnn.generate_model_rosetta_mse(input_shape)
-#model = cnn.generate_model_contact_map(input_shape, output_shape)
-
-print('Generating validation data ...')
-# Load all of the objects into the feature set 
-validation_data = sample_loader(validation_files, validation_samples, fdir)
-
-print('Running model on training data...')
-history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=4, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
-print('Time elapsed:', time() - start_time)
+	print('Running model on training data...')
+	history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=4, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
+	print('Time elapsed:', time() - start_time)
 
 
-if True:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
 	data.to_csv('figures/1crn5AH0_mse.csv')
 	plt.plot(history.history['loss'])
@@ -371,5 +394,3 @@ if True:
 	plt.savefig('figures/1crnA5H0_ros_abs_loss.png')
 	plt.clf()
 
-
-	#plt.show()
