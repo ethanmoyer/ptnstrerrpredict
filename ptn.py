@@ -110,7 +110,11 @@ class ptn:
 			if p.chain == None:
 				p.protein_ = p.protein_[0]
 			else:
-				p.protein_ = p.protein_[0][p.chain]
+				try:
+					p.protein_ = p.protein_[0][p.chain]
+				except KeyError:
+					print('Chain A is not present. Using next available chain instead.')
+					p.protein_ = next(p.protein_[0].get_chains())
 
 		return p.protein_;
 
@@ -250,7 +254,10 @@ class ptn:
 
 
 	def generate_distance_matrix(p):
-		return(distance_matrix(p.aa_coords(), p.aa_coords()))
+		coords = p.aa_coords()
+		if coords.size == 0:
+			return None
+		return distance_matrix(coords, coords)
 
 
 	def mse_contact_calc(p, p_):
@@ -474,8 +481,6 @@ class ptn:
 
 		dm = p.generate_distance_matrix()
 
-		print()
-
 		return ordinal_features, one_hot_features, dm
 
 
@@ -515,6 +520,9 @@ class ptn:
 
 	def save_1d_conv(p, file=None, fdir='ptndata/'):
 		ordinal_features, one_hot_features, dm = p.generate_1d_dm()
+
+		if dm is None:
+			return None
 
 		if file == None:
 			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
@@ -582,7 +590,7 @@ class ptn:
 
 
 ids = pd.read_csv('training.txt').values
-for id in ids:
+for id in ids[168:]:
 	p = ptn(id[0] + 'A0-10')
 	p.save_1d_conv(file=p.info, fdir='ptndata_1dconv/')
 

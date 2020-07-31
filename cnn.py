@@ -283,7 +283,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 	start_time = time()
 
 	files = getfileswithname(fdir, 'obj')
-	random.shuffle(files)
+	#random.shuffle(files)
 
 	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
 	NUMBER_OF_ATOMS = 10 
@@ -306,8 +306,17 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 		one_hot_features = entry.one_hot_features
 
 		sample_atom_list = []
+
+		if len(one_hot_features) < NUMBER_OF_ATOMS:
+			continue
+
 		for j in range(NUMBER_OF_ATOMS):
-			sample_atom_list += one_hot_features[j].tolist()
+
+			row = one_hot_features[j]
+			if type(row) == list:
+				sample_atom_list += row
+			else:
+				sample_atom_list += row.tolist()
 		feature_set[i] = np.array(sample_atom_list).reshape(-1, 1)
 
 	feature_set = np.array(feature_set)
@@ -318,7 +327,9 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 	output_shape = y.shape
 
 	model = cnn.generate_model_contact_map_1d(input_shape, output_shape)
-	history = model.fit(feature_set, y, batch_size=10, epochs=10, verbose=1)
+	history = model.fit(feature_set, y, batch_size=10, epochs=100, verbose=1, validation_split=0.2)
+
+	return model, history, feature_set, y
 
 cnn = cnn()
 conv1d_primary_seq_dm()
