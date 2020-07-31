@@ -88,9 +88,6 @@ class ptn:
 				print("Please pass a valid protein identifier into the constructor as (id){chain}{from-to}")
 				quit()
 
-			# Download structure if a file doesn't exist
-			print(p.id)
-
 			pdir = '/Users/data/pdb/' + p.id[1:3]
 
 			pdbl = PDBList()
@@ -447,13 +444,41 @@ class ptn:
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
 			if save:
-				p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
+				p_.save_3d_conv(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
 			else:
 				return mat, scores
 
 
+	res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
+
+	label_encoder = preprocessing.LabelEncoder()
+
+	def generate_1d_dm(p):
+		res_names = [res.get_resname() for res in p.protein().get_residues()]
+		res_codes = [protein_letters_3to1[res] for res in res_names]
+
+		all_res_codes = list(res_codes2ordinal.keys())
+
+		ordinal_features = []
+		one_hot_features = []
+
+		res_one_hot_encoder = np.array(pd.get_dummies(all_res_codes))
+
+		for res in resi_codes:
+			try:
+				ordinal_features.append(res_codes2ordinal[res])
+				one_hot_features.append(res_one_hot_encoder[all_res_codes.index(res)])
+			except:
+				ordinal_features.append(0)
+				one_hot_features.append([0] * 20)
+
+		dm = p.generate_distance_matrix()
+
+		return ordinal_features, one_hot_features, dm
+
+
 	# This function stores a data_entry consisting of the 3D matrix with its relative score
-	def save_data(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy_local_dir.csv'):
+	def save_3d_conv(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy_local_dir.csv'):
 		# If no file is provided, create a temporary named file in the ptndata directory. Otherwise if pdb is in the file name, create file named the same as the .pdb file as an obj file.
 		if file == None:
 			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
@@ -481,7 +506,27 @@ class ptn:
 		score_entry.to_csv(energy_file, mode = 'a', header = False, index = False)
 
 		# Create a data entry of the given matrix and dump it as aa .obj file.
-		data_entry_ = data_entry(mat, dm = dm) 
+		data_entry_ = data_entry(mat=mat, dm = dm) 
+		filehandler = open(file, 'wb') 
+		pickle.dump(data_entry_, filehandler)
+
+
+	def save_1d_conv(p, file=None, fdir='ptndata/'):
+		ordinal_features, one_hot_features, dm = p.generate_1d_dm()
+
+		if file == None:
+			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
+		elif 'clean.pdb' in file:
+			file = re.sub('.clean.pdb','.obj', file)
+			file = re.sub('tempfiles/', fdir, file)
+		elif 'pdb' in file:
+			file = re.sub('.pdb','.obj', file)
+			file = re.sub('tempfiles/', fdir, file)
+		else:
+			file = fdir + p.info + '.obj'
+
+		# Create a data entry of the given matrix and dump it as aa .obj file.
+		data_entry_ = data_entry(ordinal_features=None, one_hot_features=None, dm = dm)
 		filehandler = open(file, 'wb') 
 		pickle.dump(data_entry_, filehandler)
 
@@ -534,32 +579,6 @@ class ptn:
 		return(p_list)
 
 
-res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
-
-label_encoder = preprocessing.LabelEncoder()
-
-	def generate_1d_dm(p):
-		res_names = [res.get_resname() for res in p.protein().get_residues()]
-		res_codes = [protein_letters_3to1[res] for res in res_names]
-
-		all_res_codes = list(res_codes2ordinal.keys())
-
-		ordinal_features = []
-		one_hot_features = []
-
-		res_one_hot_encoder = np.array(pd.get_dummies(all_res_codes))
-
-		for res in resi_codes:
-			try:
-				ordinal_features.append(res_codes2ordinal[res])
-				one_hot_features.append(res_one_hot_encoder[all_res_codes.index(res)])
-			except:
-				ordinal_features.append(0)
-				one_hot_features.append([0] * 20)
-
-		dm = p.generate_distance_matrix()
-
-		return ordinal_features, one_hot_features, dm
 
 
 p = ptn('1crn')

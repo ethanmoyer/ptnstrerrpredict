@@ -9,7 +9,7 @@ import pickle
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout, BatchNormalization, Activation, Reshape
+from tensorflow.keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout, BatchNormalization, Activation, Reshape, Conv1D, MaxPooling1D
 from tensorflow.keras import initializers 
 from tensorflow.keras import regularizers 
 from tensorflow.keras import constraints 
@@ -23,7 +23,7 @@ from grid_point import grid_point
 import matplotlib.pyplot as plt
 
 import math
-
+import random
 # For HPC 
 # qsubi -pe smp 4 -l m_mem_free=5G -l h_vmem=5G
 # screen -S ptn
@@ -149,7 +149,7 @@ class cnn:
 	def __init__(c, param = None):
 		c.param = param
 	# Generate the CNN model
-	def generate_model(c, input_shape):
+	def generate_model_rosetta_mse(c, input_shape):
 		model = Sequential()
 		model.add(Conv3D(filters=3, kernel_size=8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
@@ -171,7 +171,8 @@ class cnn:
 		model.summary()
 		return model
 
-	def generate_model_contact_map(c, input_shape, output_shape):
+
+	def generate_model_contact_map_3d(c, input_shape, output_shape):
 		model = Sequential()
 		model.add(Conv3D(3, 8, strides=(1, 1, 1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
@@ -192,6 +193,30 @@ class cnn:
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
 		model.summary()
 		return model
+
+
+	def generate_model_contact_map_1d(c, input_shape, output_shape):
+		model = Sequential()
+		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(16, activation='relu'))
+		model.add(MaxPooling1D(pool_size=(2), strides=2))
+		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(32, activation='relu'))
+		model.add(MaxPooling1D(pool_size=(2), strides=2))
+		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(BatchNormalization())
+		model.add(Dense(64, activation='relu'))
+		model.add(MaxPooling1D(pool_size=(2), strides=2))
+		model.add(Dropout(0.2))
+		model.add(Flatten())
+		model.add(Dense(output_shape[2] * output_shape[2]))
+		model.add(Reshape(output_shape[1:]))
+		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
+		model.summary()
+		return model
+
 
 def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
@@ -254,6 +279,28 @@ def sample_loader(files, samples, fdir='ptndata_10H/'):
 	return (feature_set_, y)
 
 
+NUMBER_OF_RESIDUES = 10 
+
+def conv1d_primary_seq_contact_map(fdir='ptndata_small/'):
+	start_time = time()
+	total_samples = 1000
+	validation_split = 0.2
+
+	training_samples = int(total_samples * (1 - validation_split))
+	validation_samples = int(total_samples * validation_split)
+
+	files = random.shuffle(getfileswithname(fdir, 'obj'))
+
+	feature_set = np.array([[[0] * 20 * NUMBER_OF_RESIDUES] for _ in range(len(files))])
+
+	# How will we control the size of the output if different proteins will have a different number of atoms for 10 residues?
+
+	for file in files:
+		entry = pickle.load(open(fdir + file, 'rb'))
+		dm_output = entry.dm
+
+
+
 start_time = time()
 total_samples = 1000
 validation_split = 0.2
@@ -300,7 +347,7 @@ input_shape = feature_set.shape
 #output_shape = y.shape
 
 cnn = cnn()
-model = cnn.generate_model(input_shape)
+model = cnn.generate_model_rosetta_mse(input_shape)
 #model = cnn.generate_model_contact_map(input_shape, output_shape)
 
 print('Generating validation data ...')
@@ -324,17 +371,5 @@ if True:
 	plt.savefig('figures/1crnA5H0_ros_abs_loss.png')
 	plt.clf()
 
-if False:
-	a = [math.sqrt(e) for e in history.history['loss']]
-	plt.plot(a / np.mean(y_train))
-	a = [math.sqrt(e) for e in history.history['val_loss']]
-	plt.plot(a / np.mean(y_test))
-	plt.title('model relative loss')
-	plt.ylabel('loss')
-	plt.xlabel('epoch')
-	plt.legend(['train', 'test'], loc='upper left')
-	plt.savefig('figures/1crnA5H_ros_rel_loss.png')
 
 	#plt.show()
-
-# model.predict(X_train[0], verbose=0)
