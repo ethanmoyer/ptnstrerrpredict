@@ -404,7 +404,6 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 200, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_mse)) #, 
 	print('Time elapsed:', time() - start_time)
 
-if True:
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
 	data.to_csv('figures/1crn10AH1_ros.csv')
 	plt.plot(history.history['loss'])
