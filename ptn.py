@@ -15,12 +15,14 @@ sudo make install
 python3 -V
 '''
 from Bio.PDB import *
+from Bio.Data.SCOPData import protein_letters_3to1
 
 from pyrosetta import *
 from pyrosetta.toolbox import *
 
 from scipy.spatial import distance_matrix
 from sklearn.metrics import mean_squared_error 
+from sklearn import preprocessing
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -66,7 +68,6 @@ class ptn:
 		else:
 			# 1crnA 5-10'
 			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
-
 			p.info = info.group()
 			p.id = info.group('id')
 			p.chain = info.group('chain')
@@ -84,9 +85,6 @@ class ptn:
 			if p.id is None and p.chain is None and p.fromres is None and p.tores is None:
 				print("Please pass a valid protein identifier into the constructor as (id){chain}{from-to}")
 				quit()
-
-			# Download structure if a file doesn't exist
-			print(p.id)
 
 			pdir = '/Users/data/pdb/' + p.id[1:3]
 
@@ -112,7 +110,11 @@ class ptn:
 			if p.chain == None:
 				p.protein_ = p.protein_[0]
 			else:
-				p.protein_ = p.protein_[0][p.chain]
+				try:
+					p.protein_ = p.protein_[0][p.chain]
+				except KeyError:
+					print('Chain A is not present. Using next available chain instead.')
+					p.protein_ = next(p.protein_[0].get_chains())
 
 		return p.protein_;
 
@@ -140,6 +142,10 @@ class ptn:
 
 		# Loop through all of the atoms in the protein structure
 		for atom in p.protein().get_atoms():
+
+			if atom.is_disordered() or atom.get_altloc() == 'A':
+				continue
+
 			atom_chain = Selection.unfold_entities(atom, 'C')[0].get_id()
 			atom_res = Selection.unfold_entities(atom, 'R')[0]
 			
@@ -164,7 +170,6 @@ class ptn:
 
 		# Loop through all of the residues in the protein.
 		for a in aa_:
-
 			# Loop through all of the atoms in each of the residues
 			for atom in a['atoms']: 
 				atom_id = atom.get_id()
@@ -249,7 +254,10 @@ class ptn:
 
 
 	def generate_distance_matrix(p):
-		return(distance_matrix(p.aa_coords(), p.aa_coords()))
+		coords = p.aa_coords()
+		if coords.size == 0:
+			return None
+		return distance_matrix(coords, coords)
 
 
 	def mse_contact_calc(p, p_):
@@ -444,13 +452,40 @@ class ptn:
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
 			if save:
-				p_.save_data(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
+				p_.save_3d_conv(mat, scores = scores, file = file, fdir = fdir,energy_file = fdir + 'energy_local_dir.csv')
 			else:
 				return mat, scores
 
 
+	def generate_1d_dm(p):
+		res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
+
+		res_names = [res.get_resname() for i, res in enumerate(p.protein().get_residues()) if i >= p.fromres and i < p.tores]
+
+		all_res_codes = list(res_codes2ordinal.keys())
+
+		res_codes = [protein_letters_3to1[res] if res in protein_letters_3to1.keys() else 'X' for res in res_names]
+
+		ordinal_features = []
+		one_hot_features = []
+
+		res_one_hot_encoder = np.array(pd.get_dummies(all_res_codes))
+
+		for res in res_codes:
+			try:
+				ordinal_features.append(res_codes2ordinal[res])
+				one_hot_features.append(res_one_hot_encoder[all_res_codes.index(res)])
+			except:
+				ordinal_features.append(0)
+				one_hot_features.append([0] * 20)
+
+		dm = p.generate_distance_matrix()
+
+		return ordinal_features, one_hot_features, dm
+
+
 	# This function stores a data_entry consisting of the 3D matrix with its relative score
-	def save_data(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy_local_dir.csv'):
+	def save_3d_conv(p, mat, scores = None, file = None, fdir = 'ptndata/', energy_file = 'ptndata/energy_local_dir.csv'):
 		# If no file is provided, create a temporary named file in the ptndata directory. Otherwise if pdb is in the file name, create file named the same as the .pdb file as an obj file.
 		if file == None:
 			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
@@ -478,7 +513,30 @@ class ptn:
 		score_entry.to_csv(energy_file, mode = 'a', header = False, index = False)
 
 		# Create a data entry of the given matrix and dump it as aa .obj file.
-		data_entry_ = data_entry(mat, dm = dm) 
+		data_entry_ = data_entry(mat=mat, dm = dm) 
+		filehandler = open(file, 'wb') 
+		pickle.dump(data_entry_, filehandler)
+
+
+	def save_1d_conv(p, file=None, fdir='ptndata/'):
+		ordinal_features, one_hot_features, dm = p.generate_1d_dm()
+
+		if dm is None:
+			return None
+
+		if file == None:
+			file = tempfile.NamedTemporaryFile(dir = 'ptndata', mode = 'w+', suffix='.obj').name
+		elif 'clean.pdb' in file:
+			file = re.sub('.clean.pdb','.obj', file)
+			file = re.sub('tempfiles/', fdir, file)
+		elif 'pdb' in file:
+			file = re.sub('.pdb','.obj', file)
+			file = re.sub('tempfiles/', fdir, file)
+		else:
+			file = fdir + p.info + '.obj'
+
+		# Create a data entry of the given matrix and dump it as aa .obj file.
+		data_entry_ = data_entry(ordinal_features=ordinal_features, one_hot_features=one_hot_features, dm = dm)
 		filehandler = open(file, 'wb') 
 		pickle.dump(data_entry_, filehandler)
 
@@ -531,7 +589,12 @@ class ptn:
 		return(p_list)
 
 
-for i in range(10, 11):
+ids = pd.read_csv('training.txt').values
+for id in ids[1000:]:
+	p = ptn(id[0] + 'A0-10')
+	p.save_1d_conv(file=p.info, fdir='ptndata_1dconv/')
+
+for i in range(0, 0):
 
 	start = int(random.random() * 3) + 7
 	end = start + 9
@@ -541,24 +604,8 @@ for i in range(10, 11):
 	p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
 
 
-# Below is script
-if (False):
-
-	ids = pd.read_csv('training.txt').values
-
-	for id in ids:
-		p = ptn(id[0] + 'A0-10')
-		p.generate_decoy_messup_score_mse_mat(100, '/Users/data/ptnstrerrpredict/ptndata/')
-
-	for p_decoy in p.load_decoys():
-		mat = p_decoy.ptn2grid(p_decoy.aa())
-		score0 = p_decoy.mse_contact_calc(p)
-		score1, _ = p.energy_calc()
-		p_decoy.save_data(mat, pd.DataFrame({'rosetta_score': [score0], 'mse_score': [score1]}), file = p_decoy.loc, energy_file = fdir + '/energy.csv')
-
 	# Use data with one alpha helix
 	# DNA structure
-	p = ptn('103dB')
 
 
 	#ahmet: test ptn() for an example NMR file.
