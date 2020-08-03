@@ -590,7 +590,7 @@ class ptn:
 
 
 ids = pd.read_csv('training.txt').values
-for id in ids[168:]:
+for id in ids[1000:]:
 	p = ptn(id[0] + 'A0-10')
 	p.save_1d_conv(file=p.info, fdir='ptndata_1dconv/')
 

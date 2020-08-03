@@ -37,9 +37,6 @@ import random
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
 CUBIC_LENGTH_CONSTRAINT = 70
 
-# Number of samples to be shoved into the network each round
-BACTH_SIZE = 16
-
 # Given an object loaded matrix of grid points, return a logical matrix representing atomic positions
 def grid2logical(mat):
 	a = len(mat)
@@ -52,7 +49,7 @@ def grid2logical(mat):
 
 
 # Given an object loaded matrix of grid points, return a matrix of atom types into general categories {'N', 'O', 'C', 'S'}
-def grid2atomtype(mat):
+def grid2atomtype(mat, atom_type, atom_type_encoder):
 	a = len(mat)
 	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
 
@@ -68,7 +65,7 @@ def grid2atomtype(mat):
 
 
 # Given an object loaded matrix of grid points, return a matrix of specific atom types
-def grid2atom(mat):
+def grid2atom(mat, atom_pos, atom_pos_encoder):
 	a = len(mat)
 	mat_ = [[[ [] for _ in range(a)] for _ in range(a)] for _ in range(a)]
 
@@ -228,18 +225,18 @@ def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 
 
 # This is a generator function for files containing entry objects in the given location. These objects, due to their large size, are fed into the CNN one at a time as a memory optimization step.
-def sample_gen(files, fdir='ptndata_10H/'):
+def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir='ptndata_10H/'):
 	for q, file in enumerate(files):
 		entry = pickle.load(open(fdir + file, 'rb'))
 		a = grid2logical(entry.mat)
-		b = grid2atomtype(entry.mat)
-		c = grid2atom(entry.mat)
+		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
+		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 		dm_output = entry.dm
 		# rosetta_score, mse_score
 		#y = dm_output
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
-		y = energy_scores.loc[fdir + file]['rosetta_score']
+		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
@@ -247,36 +244,51 @@ def sample_gen(files, fdir='ptndata_10H/'):
 
 		y = np.array(y)
 		y = y.reshape(-1,1)	
-		yield (feature_set, np.array(y))
+		yield (feature_set, y)
 
 
-# This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN.
-def sample_loader(files, fdir='ptndata_10H/'):
-	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(len(files))])
-	y = []
+# This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN. It generates the validation samples for all three of the metrics.
+def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir='ptndata_10H/'):
+	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
+	NUMBER_OF_ATOMS = 10 
+
+	y_rosetta = []
+	y_mse = []
+	y_dm = []
 	for q, file in enumerate(files):
 		print('Percentage complete: ', round(q / len(files) * 100, 2), '%', sep='')
 		entry = pickle.load(open(fdir + file, 'rb'))
 		a = grid2logical(entry.mat)
-		b = grid2atomtype(entry.mat)
-		c = grid2atom(entry.mat)
-		dm_output = entry.dm
-		# rosetta_score, mse_score
-		#y = dm_output
+		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
+		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
+
+		dm_output = select_region_dm(entry.dm, (NUMBER_OF_ATOMS, NUMBER_OF_ATOMS))
+
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
-		y.append(energy_scores.loc[fdir + file]['rosetta_score'])
-		for i in range(len(feature_set[0])):
-			for j in range(len(feature_set[0][0])):
-				for k in range(len(feature_set[0][0][0])):
+		y_rosetta.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
+		y_mse.append(energy_scores.loc['ptndata_10H/' + file]['mse_score'])
+		y_dm.append(dm_output)
+		for i in range(len(feature_set_[0])):
+			for j in range(len(feature_set_[0][0])):
+				for k in range(len(feature_set_[0][0][0])):
 					feature_set_[q][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
-	y = np.array(y)
-	y = y.reshape(-1,1)		
-	return (feature_set_, y)
+
+	y_rosetta = np.array(y_rosetta)
+	y_rosetta = y_rosetta.reshape(-1,1)		
+
+	y_mse = np.array(y_mse)
+	y_mse = y_mse.reshape(-1,1)	
+
+	y_dm = np.reshape(y_dm, (len(y_dm), len(y_dm[0]), len(y_dm[0][0])))
+	y_dm = y_dm.astype(float)
+
+	return feature_set_, y_rosetta, y_mse, y_dm
 
 
 def select_region_dm(dm, shape):
-	return np.array([[[dm[i][j]] for i in range(shape[0])] for j in range(shape[1])])
+	return np.array([[[dm[0][i][j]] for i in range(shape[0])] for j in range(shape[1])])
+
 
 # Given the location of a directory with entry objects storing data for the 1D CNN, return the necessary features and target values for the network.
 def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
@@ -286,7 +298,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 	#random.shuffle(files)
 
 	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
-	NUMBER_OF_ATOMS = 10 
+	NUMBER_OF_ATOMS = 10
 
 	total_samples = len(files)
 	validation_split = 0.2
@@ -327,14 +339,12 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 	output_shape = y.shape
 
 	model = cnn.generate_model_contact_map_1d(input_shape, output_shape)
-	history = model.fit(feature_set, y, batch_size=10, epochs=100, verbose=1, validation_split=0.2)
+	history = model.fit(feature_set, y, batch_size=10, epochs=10, verbose=1, validation_split=0.2)
 
 	return model, history, feature_set, y
 
-cnn = cnn()
-conv1d_primary_seq_dm()
 
-def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
+def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	start_time = time()
 	total_samples = 1000
@@ -344,7 +354,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
 	validation_samples = int(total_samples * validation_split)
 
 	# Path name for storing all of the data
-	fdir = 'ptndata_small/'
+	#fdir = 'ptndata_small/'
 	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 	print('Loading files...')
 	# Load all of the obj file types and sort them by file name
@@ -355,7 +365,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
 
 	energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
 
-	files = [file for file in files if fdir + file in energy_scores.index]
+	files = [file for file in files if 'ptndata_10H/' + file in energy_scores.index]
 
 	training_files = files[:training_samples]
 	validation_files = files[training_samples:]
@@ -377,20 +387,22 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
 	# Initialize the feature set
 	feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(1)])
 
+	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(validation_samples)])
+
 	# Define input and output shape
 	input_shape = feature_set.shape
 	#output_shape = y.shape
 
-	cnn = cnn()
+	#cnn = cnn()
 	model = cnn.generate_model_rosetta_mse(input_shape)
 	#model = cnn.generate_model_contact_map(input_shape, output_shape)
 
 	print('Generating validation data ...')
 	# Load all of the objects into the feature set 
-	validation_data = sample_loader(validation_files, fdir)
+	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, fdir), steps_per_epoch=4, batch_size=10, epochs = 200, verbose=1, use_multiprocessing=True, validation_data=validation_data) #, 
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 200, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
 	print('Time elapsed:', time() - start_time)
 
 
@@ -405,3 +417,5 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_small'):
 	plt.savefig('figures/1crnA5H0_ros_abs_loss.png')
 	plt.clf()
 
+cnn = cnn()
+conv3d_tertiary_seq_rosetta_mse_dm()
