@@ -355,7 +355,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	# Path name for storing all of the data
 	#fdir = 'ptndata_small/'
-	fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 	print('Loading files...')
 	# Load all of the obj file types and sort them by file name
 	files = getfileswithname(fdir, 'obj')
@@ -417,4 +417,4 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	plt.clf()
 
 cnn = cnn()
-conv3d_tertiary_seq_rosetta_mse_dm()
+conv3d_tertiary_seq_rosetta_mse_dm('ptndata_10H/')
