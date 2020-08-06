@@ -25,13 +25,12 @@ import matplotlib.pyplot as plt
 import math
 import random
 # For HPC 
+# source venv/bin/activate
 # qsubi -pe smp 4 -l m_mem_free=5G -l h_vmem=5G
 # screen -S ptn
 # module load python/3.6.8
-# source venv/bin/activate
 # pip3 install --user --upgrade tensorflow
 # python3.6 -i cnn.py
-
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
 # Poole C and F J Owens, 'Introduction to Nanotechnology' Wiley 2003 p 315.
@@ -347,7 +346,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	start_time = time()
-	total_samples = 10
+	total_samples = 1000
 	validation_split = 0.2
 
 	training_samples = int(total_samples * (1 - validation_split))
