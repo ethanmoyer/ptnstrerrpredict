@@ -253,6 +253,12 @@ class ptn:
 		return score, pdb
 
 
+	def generate_distance_matrix_ca_cb(p):
+		coords = np.vstack((p.ca(), p.cb()))
+		if coords.size == 0:
+			return None
+		return distance_matrix(coords, coords)
+
 	def generate_distance_matrix(p):
 		coords = p.aa_coords()
 		if coords.size == 0:
@@ -447,7 +453,7 @@ class ptn:
 				score1 = p_.mse_contact_calc(p)
 				scores['mse_dm_score'] = [score1]
 			if Score.dm in score_types:
-				score2 = p_.generate_distance_matrix()
+				score2 = p_.generate_distance_matrix_ca_cb()
 				scores['dm_score'] = [score2]
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
@@ -479,7 +485,7 @@ class ptn:
 				ordinal_features.append(0)
 				one_hot_features.append([0] * 20)
 
-		dm = p.generate_distance_matrix()
+		dm = p.generate_distance_matrix_ca_cb()
 
 		return ordinal_features, one_hot_features, dm
 
@@ -537,7 +543,7 @@ class ptn:
 
 		# Create a data entry of the given matrix and dump it as aa .obj file.
 		data_entry_ = data_entry(ordinal_features=ordinal_features, one_hot_features=one_hot_features, dm = dm)
-		filehandler = open(file, 'wb') 
+		filehandler = open(file, 'wb')
 		pickle.dump(data_entry_, filehandler)
 
 
@@ -589,19 +595,31 @@ class ptn:
 		return(p_list)
 
 
-ids = pd.read_csv('training.txt').values
-for id in ids[1000:]:
-	p = ptn(id[0] + 'A0-16')
-	p.save_1d_conv(file=p.info, fdir='ptndata_1dconv/')
+if True:
+	for i in range(1000):
+		start = int(random.random() * 3) + 7
+		end = start + 9
 
-for i in range(0, 0):
+		p = ptn(f'1crnA{start}-{end}')
 
-	start = int(random.random() * 3) + 7
-	end = start + 9
+		p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
 
-	p = ptn(f'1crnA{start}-{end}')
+if True:
+	for i in range(100):
+		start = int(random.random() * 8) + 7
+		end = start + 4
 
-	p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
+		p = ptn(f'1crnA{start}-{end}')
+
+		p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_5H/')
+
+if True:
+	ids = pd.read_csv('training.txt').values
+	for id in ids:
+		p = ptn(id[0] + 'A0-16')
+		p.save_1d_conv(file=p.info, fdir='/Users/ethanmoyer/Projects/data/ptn/ptndata_1dconv/')
+
+
 
 
 	# Use data with one alpha helix

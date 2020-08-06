@@ -177,8 +177,8 @@ class cnn:
 		model.add(MaxPooling3D(pool_size=(2, 2, 2), strides=2))
 		model.add(Dropout(0.5))
 		model.add(Flatten())
-		model.add(Dense(output_shape[2] * output_shape[2]))
-		model.add(Reshape(output_shape[1:]))
+		model.add(Dense(output_shape[0] * output_shape[1]))
+		model.add(Reshape(output_shape))
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
 		model.summary()
 		return model
@@ -233,23 +233,24 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 		dm_output = entry.dm
 		# rosetta_score, mse_score
-		#y = dm_output
-		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
-		#y = y.astype(float)
-		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		y = dm_output[0].tolist()
+		y = np.reshape(y, (1, len(y[0]), len(y[0])))
+		y = y.astype(float)
+		#y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		#y = np.array(y)
+		#y = y.reshape(-1,1)	
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
 					feature_set[0][i][j][k] = [a[x_min + i][y_min + j][z_min + k]] + b[x_min + i][y_min + j][z_min + k].tolist() + c[x_min + i][y_min + j][z_min + k].tolist()
-		y = np.array(y)
-		y = y.reshape(-1,1)	
+
 		yield (feature_set, y)
 
 
 # This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN. It generates the validation samples for all three of the metrics.
 def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir='ptndata_10H/'):
 	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
-	NUMBER_OF_ATOMS = 10 
+	NUMBER_OF_ATOMS = 20 
 
 	y_rosetta = []
 	y_mse = []
@@ -346,7 +347,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	start_time = time()
-	total_samples = 1000
+	total_samples = 10
 	validation_split = 0.2
 
 	training_samples = int(total_samples * (1 - validation_split))
@@ -354,7 +355,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	# Path name for storing all of the data
 	#fdir = 'ptndata_small/'
-	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+	fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 	print('Loading files...')
 	# Load all of the obj file types and sort them by file name
 	files = getfileswithname(fdir, 'obj')
@@ -390,18 +391,18 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 	# Define input and output shape
 	input_shape = feature_set.shape
-	#output_shape = y.shape
+	output_shape = (20, 20)
 
 	#cnn = cnn()
-	model = cnn.generate_model_rosetta_mse(input_shape)
-	#model = cnn.generate_model_contact_map(input_shape, output_shape)
+	#model = cnn.generate_model_rosetta_mse(input_shape)
+	model = cnn.generate_model_contact_map_3d(input_shape, output_shape)
 
 	print('Generating validation data ...')
 	# Load all of the objects into the feature set 
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 100, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 100, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_dm)) #, 
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
