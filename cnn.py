@@ -385,7 +385,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 		rmsd_test_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_test)) ]
 		
 		rmsd_test.append(np.mean(rmsd_test_))
-if True:
+
 	if True:
 		plt.plot(datasetsize, loss_train)
 		plt.plot(datasetsize, loss_test)
@@ -412,6 +412,7 @@ if True:
 		plt.clf()
 
 	return model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test
+
 
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 #if True:
