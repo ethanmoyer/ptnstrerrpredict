@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation as R
 import scipy
 
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
+from sklearn.manifold import TSNE, MDS
 # Find dihedral angles
 #from pyrosetta.toolbox.numpy_utils import calc_dihedral
 
@@ -130,7 +130,7 @@ def geo_alignpoints(X, Y):
 	return Y
 
 
-def geo_distmat_to3d(distmat, method='tsne'):
+def geo_distmat_to3d(distmat, method='mds'):
 	distmat = (distmat + distmat.T)/2 - np.diag(distmat.diagonal())
 	if method=='pca': 
 		pca = PCA(n_components=3)

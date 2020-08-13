@@ -385,17 +385,17 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 		rmsd_test_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_test)) ]
 		
 		rmsd_test.append(np.mean(rmsd_test_))
-
+if True:
 	if True:
 		plt.plot(datasetsize, loss_train)
 		plt.plot(datasetsize, loss_test)
 		plt.plot(datasetsize, rmsd_train)
 		plt.plot(datasetsize, rmsd_test)
-		plt.legend(['Train MSE Loss', 'Validation MSE Loss', 'Train RSMD', 'Validation RSMD'], loc='upper right')
-		plt.title('1-D CNN metrics with increasing data set size')
+		plt.legend(['Train MSE Loss', 'Validation MSE Loss', 'Train RMSD', 'Validation RMSD'], loc='upper right')
+		plt.title('1-D CNN Metrics vs Data set size for MDS')
 		plt.ylabel('MSE Loss (A^2), RMSD (A)')
 		plt.xlabel('Data set size')
-		plt.savefig('figures/ptndata_1dconv_summary_tsne.png')
+		plt.savefig('figures/ptndata_1dconv_summary_mds.png')
 		plt.show()
 		plt.clf()
 
@@ -471,7 +471,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 200, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 150, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
