@@ -24,7 +24,7 @@ from math import sqrt
 from data_entry import data_entry
 from ptn_io import isfileandnotempty, getfileswithname
 from grid_point import grid_point
-from geo import geo_alignpoints
+from geo import geo_alignpoints, geo_distmat_to3d
 
 import matplotlib.pyplot as plt
 
@@ -256,7 +256,7 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 
 # This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN. It generates the validation samples for all three of the metrics.
 def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir='ptndata_10H/'):
-
+#if True:
 	y_rosetta = []
 	y_mse = []
 	y_dm = []
@@ -266,7 +266,7 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 		a = grid2logical(entry.mat)
 		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
-
+#
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
 		y_rosetta.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
@@ -283,7 +283,7 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 	y_mse = np.array(y_mse)
 	y_mse = y_mse.reshape(-1,1)	
 
-	y_dm = np.reshape(y_dm, (len(y_dm), len(y_dm[0]), len(y_dm[0][0])))
+	y_dm = np.reshape(y_dm, (len(y_dm), len(y_dm[0][0]), len(y_dm[0][0])))
 	y_dm = y_dm.astype(float)
 
 	return feature_set_, y_rosetta, y_mse, y_dm
@@ -298,18 +298,19 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 #if True:
 	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
 	NUMBER_OF_AA = 11
+	NUMBER_OF_AA2 = NUMBER_OF_AA
 	#
 	start_time = time()
 	fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_1dconv/'
 	files = getfileswithname(fdir, 'obj')
-	files = [file for file in files if pickle.load(open(fdir + file, 'rb')).dm.shape == (22, 22) and len(pickle.load(open(fdir + file, 'rb')).one_hot_features) == NUMBER_OF_AA]
+	files = [file for file in files if pickle.load(open(fdir + file, 'rb')).dm.shape == (NUMBER_OF_AA2, NUMBER_OF_AA2) and len(pickle.load(open(fdir + file, 'rb')).one_hot_features) == NUMBER_OF_AA]
 	#random.shuffle(files)
 #
 	total_samples = len(files)
 	files = files[:total_samples]
 	validation_split = 0.2
 #
-#if True:
+#
 	training_samples = int(total_samples * (1 - validation_split))
 	validation_samples = int(total_samples * validation_split)
 #
@@ -333,59 +334,94 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 			else:
 				sample_atom_list += row.tolist()
 		feature_set[i] = np.array(sample_atom_list).reshape(-1, 1)
-#if True:
+#
 	feature_set = np.array(feature_set)
 	input_shape = feature_set.shape
 	#
 	y = np.reshape(y, (len(y), len(y[0]), len(y[0])))
 #
-	#y = y.astype(float)
-	#output_shape = y.shape
-#
-	model = cnn.generate_model_contact_map_1d(input_shape, (22, 22))
+	model = cnn.generate_model_contact_map_1d(input_shape, (NUMBER_OF_AA2, NUMBER_OF_AA2))
 
 	early_stopping = EarlyStopping(patience=5)
-	history = model.fit(feature_set, y, batch_size=10, epochs=100, verbose=1, validation_split=0.2, callbacks=[early_stopping])
+	datasetsize = []
+	loss_train = []
+	loss_test = []
+	rmsd_train = []
+	rmsd_test = []
+	for i in range(100, 1000, 100):
+		X = feature_set[:i]
+		y_ = y[:i]
 
+		X_train, X_test, y_train, y_test = train_test_split(X, y_, test_size=0.2)
 
-	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
-	data.to_csv('figures/ptndata_1dconv.csv')
-	plt.plot(history.history['loss'])
-	plt.plot(history.history['val_loss'])
-	plt.title('model absolute loss')
-	plt.ylabel('loss')
-	plt.xlabel('epoch')
-	plt.legend(['train', 'test'], loc='upper left')
-	plt.savefig('figures/ptndata_1dconv_abs_loss.png')
-	plt.clf()
-	
-	y_act = y
-	y_pred = model.predict(feature_set)
+		datasetsize.append(len(X))
+		history = model.fit(X_train, y_train, batch_size=10, epochs=100, verbose=1, validation_data=(X_test, y_test), callbacks=[early_stopping])
 
-	y_pred = select_region_dm(y_pred, (NUMBER_OF_AA, NUMBER_OF_AA))
-	y_act = select_region_dm(y_act, (NUMBER_OF_AA, NUMBER_OF_AA))
+		loss_train.append(history.history['loss'][len(history.history['loss']) - 1])
+		loss_test.append(history.history['val_loss'][len(history.history['val_loss']) - 1])
 
-	pca = PCA(n_components=3)
+		y_pred_train = model.predict(X_train)
+		y_pred_test = model.predict(X_test)
 
-	coordinates_pred = [pca.fit_transform(elem) for elem in y_pred]
-	coordinates_act = [pca.fit_transform(elem) for elem in y_act]
+		#y_pred = select_region_dm(y_pred, (NUMBER_OF_AA, NUMBER_OF_AA))
+		#y_act = select_region_dm(y_act, (NUMBER_OF_AA, NUMBER_OF_AA))
 
-	coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_act))]
+		pca = PCA(n_components=3)
 
-	rms = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_act)) ]
+		coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_train]
+		coordinates_act = [geo_distmat_to3d(elem) for elem in y_train]
 
-	print(rms)
-	return model, history, feature_set, y_act, rms
+		coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_train))]
+
+		rmsd_train_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_train)) ]
+
+		rmsd_train.append(np.mean(rmsd_train_))
+
+		coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_test]
+		coordinates_act = [geo_distmat_to3d(elem) for elem in y_test]
+
+		coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_test))]
+
+		rmsd_test_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_test)) ]
+		
+		rmsd_test.append(np.mean(rmsd_test_))
+
+	if True:
+		plt.plot(datasetsize, loss_train)
+		plt.plot(datasetsize, loss_test)
+		plt.plot(datasetsize, rmsd_train)
+		plt.plot(datasetsize, rmsd_test)
+		plt.legend(['Train MSE Loss', 'Validation MSE Loss', 'Train RSMD', 'Validation RSMD'], loc='upper right')
+		plt.title('1-D CNN metrics with increasing data set size')
+		plt.ylabel('MSE Loss (A^2), RMSD (A)')
+		plt.xlabel('Data set size')
+		plt.savefig('figures/ptndata_1dconv_summary_tsne.png')
+		plt.show()
+		plt.clf()
+
+	if False:
+		data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
+		data.to_csv('figures/ptndata_1dconv.csv')
+		plt.plot(history.history['loss'])
+		plt.plot(history.history['val_loss'])
+		plt.title('1-D CNN Contact Map Metric')
+		plt.ylabel('MSE Loss (A^2)')
+		plt.xlabel('Epoch')
+		plt.legend(['Training set', 'Validation set'], loc='upper left')
+		plt.savefig('figures/ptndata_1dconv_abs_loss.png')
+		plt.clf()
+
+	return model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test
 
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
-
+#if True:
 	start_time = time()
 	total_samples = 1000
 	validation_split = 0.2
-
+#
 	training_samples = int(total_samples * (1 - validation_split))
 	validation_samples = int(total_samples * validation_split)
-
+#
 	# Path name for storing all of the data
 	#fdir = 'ptndata_small/'
 	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
@@ -393,43 +429,43 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	# Load all of the obj file types and sort them by file name
 	files = getfileswithname(fdir, 'obj')
 	files.sort()
-
+#
 	files = files[:total_samples]
-
+#
 	energy_scores = pd.read_csv(fdir + 'energy_local_dir.csv', index_col='file')
-
+#
 	files = [file for file in files if 'ptndata_10H/' + file in energy_scores.index]
-
+#
 	training_files = files[:training_samples]
 	validation_files = files[training_samples:]
-
+#
 	# Index for the four main types of atoms and None that will indexed when looping through each entry
 	atom_type = ['C', 'N', 'O', 'S', 'None']
 	atom_type_data = pd.Series(atom_type)
 	atom_type_encoder = np.array(pd.get_dummies(atom_type_data))
-
+#
 	print('Detemining positional atom types and smallest window size of the data ...')
 	# Loop through each file and make a list of all of the atoms present.
-
+#
 	atom_pos, x_min, y_min, z_min, x_max, y_max, z_max = load_feature_dimensions(files, fdir)
-
+#
 	# Format the position specific atom list so it can be used as one-hot encoding in the network
 	atom_pos_data = pd.Series(atom_pos)
 	atom_pos_encoder = np.array(pd.get_dummies(atom_pos_data))
-
+#
 	# Initialize the feature set
 	feature_set = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(1)])
-
+#
 	feature_set_ = np.array([[[[ [0] * (1 + len(atom_type) + len(atom_pos)) for i in range(x_min, x_max)] for j in range(y_min, y_max)] for k in range(z_min, z_max)] for q in range(validation_samples)])
-
+#
 	# Define input and output shape
 	input_shape = feature_set.shape
 	output_shape = (20, 20)
-
+#
 	#cnn = cnn()
-	#model = cnn.generate_model_rosetta_mse(input_shape)
-	model = cnn.generate_model_contact_map_3d(input_shape, output_shape)
-
+	model = cnn.generate_model_rosetta_mse(input_shape)
+	#model = cnn.generate_model_contact_map_3d(input_shape, output_shape)
+#
 	print('Generating validation data ...')
 	# Load all of the objects into the feature set 
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
@@ -451,4 +487,4 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 cnn = cnn()
 conv3d_tertiary_seq_rosetta_mse_dm('ptndata_10H/')
-#model, history, feature_set, y_act, rms = conv1d_primary_seq_dm()
+#model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test = conv1d_primary_seq_dm()

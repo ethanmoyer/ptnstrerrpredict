@@ -2,9 +2,10 @@
 
 # Euler angles to roation matrix
 from scipy.spatial.transform import Rotation as R
-
 import scipy
 
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 # Find dihedral angles
 #from pyrosetta.toolbox.numpy_utils import calc_dihedral
 
@@ -128,3 +129,18 @@ def geo_alignpoints(X, Y):
 
 	return Y
 
+
+def geo_distmat_to3d(distmat, method='tsne'):
+	distmat = (distmat + distmat.T)/2 - np.diag(distmat.diagonal())
+	if method=='pca': 
+		pca = PCA(n_components=3)
+		return pca.fit_transform(distmat)
+
+	elif method=='tsne':
+		# https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
+		return TSNE(n_components = 3, perplexity=5.0, early_exaggeration=3.0, n_iter=5000, method='exact', init='pca').fit_transform(distmat)
+	elif method=='mds':
+		#https://scikit-learn.org/stable/modules/generated/sklearn.manifold.MDS.html
+		return MDS(n_components=3, metric=True, dissimilarity='precomputed').fit_transform(distmat)
+	else:
+		raise Exception('unsupported method');
