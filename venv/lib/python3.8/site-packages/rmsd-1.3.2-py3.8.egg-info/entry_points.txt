@@ -1,0 +1,3 @@
+[console_scripts]
+calculate_rmsd = rmsd.calculate_rmsd:main
+

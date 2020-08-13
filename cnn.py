@@ -13,12 +13,18 @@ from tensorflow.keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropou
 from tensorflow.keras import initializers 
 from tensorflow.keras import regularizers 
 from tensorflow.keras import constraints 
+from tensorflow.keras.callbacks import EarlyStopping
 
+
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from math import sqrt
 
 from data_entry import data_entry
 from ptn_io import isfileandnotempty, getfileswithname
 from grid_point import grid_point
+from geo import geo_alignpoints
 
 import matplotlib.pyplot as plt
 
@@ -186,22 +192,22 @@ class cnn:
 	# Generate 1D CNN model for contact map.
 	def generate_model_contact_map_1d(c, input_shape, output_shape):
 		model = Sequential()
-		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv1D(filters=6, kernel_size=6, strides=(1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
-		model.add(Dense(16, activation='relu'))
+		model.add(Dense(6, activation='relu'))
 		model.add(MaxPooling1D(pool_size=(2), strides=2))
-		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv1D(filters=6, kernel_size=6, strides=(1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
-		model.add(Dense(32, activation='relu'))
+		model.add(Dense(6, activation='relu'))
 		model.add(MaxPooling1D(pool_size=(2), strides=2))
-		model.add(Conv1D(filters=6, kernel_size=16, strides=(1), padding="same", input_shape=input_shape[1:]))
+		model.add(Conv1D(filters=6, kernel_size=6, strides=(1), padding="same", input_shape=input_shape[1:]))
 		model.add(BatchNormalization())
-		model.add(Dense(64, activation='relu'))
+		model.add(Dense(6, activation='relu'))
 		model.add(MaxPooling1D(pool_size=(2), strides=2))
 		model.add(Dropout(0.2))
 		model.add(Flatten())
-		model.add(Dense(output_shape[2] * output_shape[2]))
-		model.add(Reshape(output_shape[1:]))
+		model.add(Dense(output_shape[0] * output_shape[1]))
+		model.add(Reshape(output_shape))
 		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
 		model.summary()
 		return model
@@ -232,12 +238,14 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 		dm_output = entry.dm
 		# rosetta_score, mse_score
-		y = dm_output[0].tolist()
-		y = np.reshape(y, (1, len(y[0]), len(y[0])))
-		y = y.astype(float)
-		#y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
-		#y = np.array(y)
-		#y = y.reshape(-1,1)	
+
+		#y = dm_output[0].tolist()
+		#y = np.reshape(y, (1, len(y[0]), len(y[0])))
+		#y = y.astype(float)
+
+		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		y = np.array(y)
+		y = y.reshape(-1,1)	
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
@@ -248,8 +256,6 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 
 # This is almost like sample_gen, except it is a function instead of a generator function. This is used for generating the validation data before training the CNN. It generates the validation samples for all three of the metrics.
 def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir='ptndata_10H/'):
-	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
-	NUMBER_OF_ATOMS = 20 
 
 	y_rosetta = []
 	y_mse = []
@@ -261,13 +267,11 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 
-		dm_output = select_region_dm(entry.dm, (NUMBER_OF_ATOMS, NUMBER_OF_ATOMS))
-
 		#y = np.reshape(y, (len(y), len(y[0][0]), len(y[0][0])))
 		#y = y.astype(float)
 		y_rosetta.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
 		y_mse.append(energy_scores.loc['ptndata_10H/' + file]['mse_score'])
-		y_dm.append(dm_output)
+		y_dm.append(entry.dm)
 		for i in range(len(feature_set_[0])):
 			for j in range(len(feature_set_[0][0])):
 				for k in range(len(feature_set_[0][0][0])):
@@ -286,62 +290,92 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 
 
 def select_region_dm(dm, shape):
-	return np.array([[[dm[0][i][j]] for i in range(shape[0])] for j in range(shape[1])])
+	return np.array([[ [dm[k][j][i] for i in range(shape[1])] for j in range(shape[0])] for k in range(len(dm))])
 
 
 # Given the location of a directory with entry objects storing data for the 1D CNN, return the necessary features and target values for the network.
 def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
-	start_time = time()
-
-	files = getfileswithname(fdir, 'obj')
-	#random.shuffle(files)
-
+#if True:
 	# Number of atoms is set to a hard cut off so the convolution network has a constant size 
-	NUMBER_OF_ATOMS = 10
-
+	NUMBER_OF_AA = 11
+	#
+	start_time = time()
+	fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_1dconv/'
+	files = getfileswithname(fdir, 'obj')
+	files = [file for file in files if pickle.load(open(fdir + file, 'rb')).dm.shape == (22, 22) and len(pickle.load(open(fdir + file, 'rb')).one_hot_features) == NUMBER_OF_AA]
+	#random.shuffle(files)
+#
 	total_samples = len(files)
+	files = files[:total_samples]
 	validation_split = 0.2
-
+#
+#if True:
 	training_samples = int(total_samples * (1 - validation_split))
 	validation_samples = int(total_samples * validation_split)
-
-	feature_set = np.array([ [ [0] for _ in range(20 * NUMBER_OF_ATOMS) ] for _ in range(total_samples) ])
+#
+	feature_set = np.array([ [ [0] for _ in range(20 * NUMBER_OF_AA) ] for _ in range(total_samples) ])
 	y = []
+#
 	for i, file in enumerate(files):
+#
 		entry = pickle.load(open(fdir + file, 'rb'))
-
-		dm_output = select_region_dm(entry.dm, (NUMBER_OF_ATOMS, NUMBER_OF_ATOMS))
-		y.append(dm_output)
-
-		ordinal_features = entry.ordinal_features
+#
 		one_hot_features = entry.one_hot_features
-
+#
 		sample_atom_list = []
-
-		if len(one_hot_features) < NUMBER_OF_ATOMS:
-			continue
-
-		for j in range(NUMBER_OF_ATOMS):
-
+#
+		y.append(entry.dm)
+		for j in range(NUMBER_OF_AA):
+#
 			row = one_hot_features[j]
 			if type(row) == list:
 				sample_atom_list += row
 			else:
 				sample_atom_list += row.tolist()
 		feature_set[i] = np.array(sample_atom_list).reshape(-1, 1)
-
+#if True:
 	feature_set = np.array(feature_set)
 	input_shape = feature_set.shape
+	#
+	y = np.reshape(y, (len(y), len(y[0]), len(y[0])))
+#
+	#y = y.astype(float)
+	#output_shape = y.shape
+#
+	model = cnn.generate_model_contact_map_1d(input_shape, (22, 22))
 
-	y = np.reshape(y, (len(y), len(y[0]), len(y[0][0])))
-	y = y.astype(float)
-	output_shape = y.shape
+	early_stopping = EarlyStopping(patience=5)
+	history = model.fit(feature_set, y, batch_size=10, epochs=100, verbose=1, validation_split=0.2, callbacks=[early_stopping])
 
-	model = cnn.generate_model_contact_map_1d(input_shape, output_shape)
-	history = model.fit(feature_set, y, batch_size=10, epochs=10, verbose=1, validation_split=0.2)
 
-	return model, history, feature_set, y
+	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
+	data.to_csv('figures/ptndata_1dconv.csv')
+	plt.plot(history.history['loss'])
+	plt.plot(history.history['val_loss'])
+	plt.title('model absolute loss')
+	plt.ylabel('loss')
+	plt.xlabel('epoch')
+	plt.legend(['train', 'test'], loc='upper left')
+	plt.savefig('figures/ptndata_1dconv_abs_loss.png')
+	plt.clf()
+	
+	y_act = y
+	y_pred = model.predict(feature_set)
 
+	y_pred = select_region_dm(y_pred, (NUMBER_OF_AA, NUMBER_OF_AA))
+	y_act = select_region_dm(y_act, (NUMBER_OF_AA, NUMBER_OF_AA))
+
+	pca = PCA(n_components=3)
+
+	coordinates_pred = [pca.fit_transform(elem) for elem in y_pred]
+	coordinates_act = [pca.fit_transform(elem) for elem in y_act]
+
+	coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_act))]
+
+	rms = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_act)) ]
+
+	print(rms)
+	return model, history, feature_set, y_act, rms
 
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
@@ -401,7 +435,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 100, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_dm)) #, 
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 200, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
@@ -417,3 +451,4 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 
 cnn = cnn()
 conv3d_tertiary_seq_rosetta_mse_dm('ptndata_10H/')
+#model, history, feature_set, y_act, rms = conv1d_primary_seq_dm()

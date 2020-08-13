@@ -55,7 +55,7 @@ class Score(Enum):
 	dm = 2
 
 class ptn:
-	def __init__(p, info, chain = None, fromres = None, tores = None):	
+	def __init__(p, info, chain=None, fromres=None, tores=None):	
 		# Set protein_ to 0 by default	
 		p.protein_ = 0
 		
@@ -67,10 +67,10 @@ class ptn:
 			p.loc = info
 		else:
 			# 1crnA 5-10'
-			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[A-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
+			info = re.match('(ptndata/)?(?P<id>[\dA-Za-z0-9]{4})(?P<chain>[a-zA-Z0-9])?\s*((?P<fromres>\d+)-(?P<tores>\d+))?', info)
 			p.info = info.group()
 			p.id = info.group('id')
-			p.chain = info.group('chain')
+			p.chain = info.group('chain').upper()
 
 			# Used for subsetting the residues
 			p.fromres = info.group('fromres')
@@ -86,13 +86,13 @@ class ptn:
 				print("Please pass a valid protein identifier into the constructor as (id){chain}{from-to}")
 				quit()
 
-			pdir = '/Users/data/pdb/' + p.id[1:3]
+			pdir = '/Users/ethanmoyer/Projects/data/pdb/' + p.id[1:3]
 
 			pdbl = PDBList()
 			p.loc = pdbl.retrieve_pdb_file(p.id, pdir = pdir)
 
-		# Set amino acids to none for easier reference.
-		p.aa_ = None
+			# Set amino acids to none for easier reference.
+			p.aa_ = None
 
 
 	# Represents the entire structure loaded from pdb
@@ -255,6 +255,12 @@ class ptn:
 
 	def generate_distance_matrix_ca_cb(p):
 		coords = np.vstack((p.ca(), p.cb()))
+		if coords.size == 0:
+			return None
+		return distance_matrix(coords, coords)
+
+	def generate_distance_matrix_ca(p):
+		coords = p.ca()
 		if coords.size == 0:
 			return None
 		return distance_matrix(coords, coords)
@@ -453,7 +459,7 @@ class ptn:
 				score1 = p_.mse_contact_calc(p)
 				scores['mse_dm_score'] = [score1]
 			if Score.dm in score_types:
-				score2 = p_.generate_distance_matrix_ca_cb()
+				score2 = p_.generate_distance_matrix_ca()
 				scores['dm_score'] = [score2]
 
 			mat = p_.ptn2grid(p_.aa(), angles = [random.random() * 360, random.random() * 360, random.random() * 360])
@@ -466,7 +472,7 @@ class ptn:
 	def generate_1d_dm(p):
 		res_codes2ordinal = {'C': 0.05, 'D': 0.1, 'S': 0.15, 'Q': 0.2, 'K': 0.25, 'I': 0.3, 'P': 0.35, 'T': 0.4, 'F': 0.45, 'N': 0.5, 'G': 0.55, 'H': 0.6, 'L': 0.65, 'R': 0.7, 'W': 0.75, 'A': 0.8, 'V': 0.85, 'E': 0.9, 'Y': 0.95, 'M': 1.0}
 
-		res_names = [res.get_resname() for i, res in enumerate(p.protein().get_residues()) if i >= p.fromres and i < p.tores]
+		res_names = [res.get_resname() for i, res in enumerate(p.protein().get_residues()) if i >= p.fromres and i <= p.tores]
 
 		all_res_codes = list(res_codes2ordinal.keys())
 
@@ -485,7 +491,7 @@ class ptn:
 				ordinal_features.append(0)
 				one_hot_features.append([0] * 20)
 
-		dm = p.generate_distance_matrix_ca_cb()
+		dm = p.generate_distance_matrix_ca()
 
 		return ordinal_features, one_hot_features, dm
 
@@ -595,7 +601,7 @@ class ptn:
 		return(p_list)
 
 
-if True:
+if False:
 	for i in range(1000):
 		start = int(random.random() * 3) + 7
 		end = start + 9
@@ -604,7 +610,7 @@ if True:
 
 		p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/')
 
-if True:
+if False:
 	for i in range(100):
 		start = int(random.random() * 8) + 7
 		end = start + 4
@@ -616,7 +622,9 @@ if True:
 if True:
 	ids = pd.read_csv('training.txt').values
 	for id in ids:
-		p = ptn(id[0] + 'A0-16')
+		p = ptn(id[0])
+		if p.info == None:
+			continue
 		p.save_1d_conv(file=p.info, fdir='/Users/ethanmoyer/Projects/data/ptn/ptndata_1dconv/')
 
 

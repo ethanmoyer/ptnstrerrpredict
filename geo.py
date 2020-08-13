@@ -3,6 +3,8 @@
 # Euler angles to roation matrix
 from scipy.spatial.transform import Rotation as R
 
+import scipy
+
 # Find dihedral angles
 from pyrosetta.toolbox.numpy_utils import calc_dihedral
 
@@ -103,4 +105,26 @@ def geo_rotatebyangles_simple_trasnlation(coords, angles):
 def geo_generate_dihedral_angles(coords):
 	return [calc_dihedral(coords[i:i + 4]) for i in range(len(coords) - 3)]
 
+	# [Y,R,T,rmsd]=geo_alignpoints(X,Y)
+
+def geo_alignpoints(X, Y):
+	npoints = len(X)	
+	# mean-centriod
+	Xm = get_centriod(X)
+	Ym = get_centriod(Y)
+	Xc = X - Xm
+	Yc = Y - Ym
+
+	u, _, v = scipy.linalg.svd(np.transpose(Yc) @ Xc) 
+	# Rotiation matrix
+	I = [[1, 0, 0], [0 ,1, 0], [0, 0 , np.sign(np.linalg.det(np.transpose(Yc) @ Xc))]]
+	R = u @ I @ v
+
+	# Translation matrix
+	T = Xm - Ym @ R
+
+	# Translate Y to alugn X
+	Y = Y @ R + T
+
+	return Y
 
