@@ -6,7 +6,7 @@ from scipy.spatial.transform import Rotation as R
 import scipy
 
 # Find dihedral angles
-from pyrosetta.toolbox.numpy_utils import calc_dihedral
+#from pyrosetta.toolbox.numpy_utils import calc_dihedral
 
 import numpy as np
 
@@ -102,8 +102,8 @@ def geo_rotatebyangles_simple_trasnlation(coords, angles):
 
 
 # Calculate dihedral angles of coordinates in R3
-def geo_generate_dihedral_angles(coords):
-	return [calc_dihedral(coords[i:i + 4]) for i in range(len(coords) - 3)]
+#def geo_generate_dihedral_angles(coords):
+#	return [calc_dihedral(coords[i:i + 4]) for i in range(len(coords) - 3)]
 
 	# [Y,R,T,rmsd]=geo_alignpoints(X,Y)
 
