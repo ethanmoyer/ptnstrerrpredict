@@ -243,7 +243,7 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		#y = np.reshape(y, (1, len(y[0]), len(y[0])))
 		#y = y.astype(float)
 
-		y = energy_scores.loc['ptndata_10H/' + file]['rosetta_score']
+		y = energy_scores.loc['ptndata_10H/' + file]['mse_score']
 		y = np.array(y)
 		y = y.reshape(-1,1)	
 		for i in range(len(feature_set[0])):
@@ -471,19 +471,21 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	# Load all of the objects into the feature set 
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
+	early_stopping = EarlyStopping(patience=5)
+
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 150, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_rosetta)) #, 
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 150, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_mse), callbacks=[early_stopping]) #, 
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
-	data.to_csv('figures/1crnAH10_ros.csv')
+	data.to_csv('figures/1crnAH10_mse.csv')
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
-	plt.title('3-D CNN Rosetta Metric')
+	plt.title('3-D CNN MSE Conact Map Metric')
 	plt.ylabel('MSE Loss (A^2)')
 	plt.xlabel('Epoch')
 	plt.legend(['Training set', 'Validation set'], loc='upper left')
-	plt.savefig('figures/1crnAH10_ros_abs_loss.png')
+	plt.savefig('figures/1crnAH10_mse_abs_loss.png')
 	plt.clf()
 
 cnn = cnn()
