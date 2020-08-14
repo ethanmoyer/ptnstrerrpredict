@@ -471,7 +471,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	# Load all of the objects into the feature set 
 	feature_set, y_rosetta, y_mse, y_dm = sample_loader(validation_files, feature_set_, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir)
 
-	early_stopping = EarlyStopping(patience=5)
+	early_stopping = EarlyStopping(patience=5, min_delta=0.1)
 
 	print('Running model on training data...')
 	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 150, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_mse), callbacks=[early_stopping]) #, 
