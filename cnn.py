@@ -237,12 +237,15 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 		dm_output = entry.dm
+		print(len(dm_output))
+		print(len(dm_output[0]))
+		print(len(dm_output[0][0]))
+		quit()
 		# rosetta_score, mse_score
 
 		y = dm_output[0].tolist()
 		y = np.reshape(y, (1, len(y[0]), len(y[0])))
 		y = y.astype(float)
-
 		#y = energy_scores.loc['ptndata_10H/' + file]['mse_score']
 		#y = np.array(y)
 		#y = y.reshape(-1,1)	
@@ -272,8 +275,6 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 		y_rosetta.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
 		y_mse.append(energy_scores.loc['ptndata_10H/' + file]['mse_score'])
 		y_dm.append(entry.dm)
-		print(np.array(entry.dm).shape)
-		quit()
 		for i in range(len(feature_set_[0])):
 			for j in range(len(feature_set_[0][0])):
 				for k in range(len(feature_set_[0][0][0])):
