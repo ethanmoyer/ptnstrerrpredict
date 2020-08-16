@@ -473,7 +473,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	#early_stopping = EarlyStopping(patience=5, min_delta=0.1)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 80, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_dm)) #, callbacks=[early_stopping]
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs =150, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_dm)) #, callbacks=[early_stopping]
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
