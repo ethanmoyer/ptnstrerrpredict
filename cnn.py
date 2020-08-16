@@ -237,10 +237,6 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		b = grid2atomtype(entry.mat, atom_type, atom_type_encoder)
 		c = grid2atom(entry.mat, atom_pos, atom_pos_encoder)
 		dm_output = entry.dm
-		print(len(dm_output))
-		print(len(dm_output[0]))
-		print(len(dm_output[0][0]))
-		quit()
 		# rosetta_score, mse_score
 
 		y = dm_output[0].tolist()
@@ -420,7 +416,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 #if True:
 	start_time = time()
-	total_samples = 10
+	total_samples = 1000
 	validation_split = 0.2
 #
 	training_samples = int(total_samples * (1 - validation_split))
