@@ -239,13 +239,13 @@ def sample_gen(files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_
 		dm_output = entry.dm
 		# rosetta_score, mse_score
 
-		#y = dm_output[0].tolist()
-		#y = np.reshape(y, (1, len(y[0]), len(y[0])))
-		#y = y.astype(float)
+		y = dm_output[0].tolist()
+		y = np.reshape(y, (1, len(y[0]), len(y[0])))
+		y = y.astype(float)
 
-		y = energy_scores.loc['ptndata_10H/' + file]['mse_score']
-		y = np.array(y)
-		y = y.reshape(-1,1)	
+		#y = energy_scores.loc['ptndata_10H/' + file]['mse_score']
+		#y = np.array(y)
+		#y = y.reshape(-1,1)	
 		for i in range(len(feature_set[0])):
 			for j in range(len(feature_set[0][0])):
 				for k in range(len(feature_set[0][0][0])):
@@ -272,6 +272,8 @@ def sample_loader(files, feature_set_, atom_type, atom_type_encoder, atom_pos, a
 		y_rosetta.append(energy_scores.loc['ptndata_10H/' + file]['rosetta_score'])
 		y_mse.append(energy_scores.loc['ptndata_10H/' + file]['mse_score'])
 		y_dm.append(entry.dm)
+		print(np.array(entry.dm).shape)
+		quit()
 		for i in range(len(feature_set_[0])):
 			for j in range(len(feature_set_[0][0])):
 				for k in range(len(feature_set_[0][0][0])):
@@ -417,7 +419,7 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 #if True:
 	start_time = time()
-	total_samples = 1000
+	total_samples = 10
 	validation_split = 0.2
 #
 	training_samples = int(total_samples * (1 - validation_split))
@@ -425,7 +427,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 #
 	# Path name for storing all of the data
 	#fdir = 'ptndata_small/'
-	#fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
+	fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_10H/'
 	print('Loading files...')
 	# Load all of the obj file types and sort them by file name
 	files = getfileswithname(fdir, 'obj')
@@ -464,8 +466,8 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	output_shape = (20, 20)
 #
 	#cnn = cnn()
-	model = cnn.generate_model_rosetta_mse(input_shape)
-	#model = cnn.generate_model_contact_map_3d(input_shape, output_shape)
+	#model = cnn.generate_model_rosetta_mse(input_shape)
+	model = cnn.generate_model_contact_map_3d(input_shape, output_shape)
 #
 	print('Generating validation data ...')
 	# Load all of the objects into the feature set 
@@ -474,7 +476,7 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	#early_stopping = EarlyStopping(patience=5, min_delta=0.1)
 
 	print('Running model on training data...')
-	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 100, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_mse)) #, callbacks=[early_stopping]
+	history = model.fit(sample_gen(training_files, feature_set, atom_type, atom_type_encoder, atom_pos, atom_pos_encoder, energy_scores, x_min, y_min, z_min, x_max, y_max, z_max, fdir), steps_per_epoch=1,epochs = 80, verbose=1, use_multiprocessing=True, validation_data=(feature_set, y_dm)) #, callbacks=[early_stopping]
 	print('Time elapsed:', time() - start_time)
 
 	data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})

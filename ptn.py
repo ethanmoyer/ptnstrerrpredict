@@ -41,7 +41,7 @@ from grid_point import grid_point
 from equ import calculate_atom_occupacy, find_nearest_atom, find_atom_distances
 
 from ptn_io import isfileandnotempty, getfileswithname
-from geo import geo_move2position, geo_rotatebyangles_linear_alg, get_centriod, geo_generate_dihedral_angles
+from geo import geo_move2position, geo_rotatebyangles_linear_alg, get_centriod 
 
 # Tryptophan (largest amino acid) = 0.67 nm in diameter 6.7 angstroms -> 7 A
 # For 10 Tryptophan, 70 Angstroms x 70 Angstroms x 70 Angstroms
@@ -621,7 +621,7 @@ if False:
 
 if True:
 	ids = pd.read_csv('training.txt').values
-	for id in ids:
+	for id in ids[8742:]:
 		p = ptn(id[0])
 		if p.info == None:
 			continue
