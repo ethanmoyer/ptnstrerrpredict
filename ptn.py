@@ -283,7 +283,7 @@ class ptn:
 
 		# If file is not assigned, generate temp file
 		if file == None:
-			file = tempfile.NamedTemporaryFile(dir = 'tempfiles', mode = 'w+', suffix='.pdb').name
+			file = tempfile.NamedTemporaryFile(dir = 'sample_ptn', mode = 'w+', suffix='.pdb').name
 		
 		# Open file and loop through all of the atoms in the protein and print all of their information to the file.
 		# ethan: only write PDB files after structure is updated from the subsetting done, i.e. range of aa or chains
@@ -336,7 +336,7 @@ class ptn:
 
 
 	# Creates logical 3D structure based on the positions of atoms in a protein's 3D structure
-	def ptn2grid(p, amino_acids, center = [CUBIC_LENGTH_CONSTRAINT/2, CUBIC_LENGTH_CONSTRAINT/2, CUBIC_LENGTH_CONSTRAINT/2], angles = None): 
+	def ptn2grid(p, amino_acids, center = [CUBIC_LENGTH_CONSTRAINT/2, CUBIC_LENGTH_CONSTRAINT/2, CUBIC_LENGTH_CONSTRAINT/2], angles = None, logical=False): 
 
 		# Make a copy of p and alter that.
 		p_ = copy.deepcopy(p)
@@ -411,6 +411,9 @@ class ptn:
 				mat[x][y][z].atoms_within_threshold = len(atom_distances[atom_distances <= mat[x][y][z].threshold])
 
 				atom_number += 1
+
+		if logical:
+			return logical_mat
 
 		# Calculate occupancy for each grid point
 		for x in range(a):
@@ -619,7 +622,7 @@ if False:
 
 		p.generate_decoy_messup_scores(1, native_rate = 0.05, start = i, fdir = '/Users/ethanmoyer/Projects/data/ptn/ptndata_5H/')
 
-if True:
+if False:
 	ids = pd.read_csv('training.txt').values
 	for id in ids[8742:]:
 		p = ptn(id[0])

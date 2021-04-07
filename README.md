@@ -1,5 +1,14 @@
 # ptnstrerrpredict - Determining an Energy Cost Function to Predict 3D Protein Structure using Machine Learning
 
+## Install requirements
+```
+pip install -r requirements.txt
+```
+
+## Installing pyrosetta
+
+http://www.pyrosetta.org/dow
+
 ## Program
 
 This project is a part of my undergraduate curriculum at Drexel University in Philadelphia, PA. During the summer after my freshman year, I was selected as a STAR (Students Tackling Advanced Research) Scholar Research Assistant under Drexel University Office of Undergraduate Research. 

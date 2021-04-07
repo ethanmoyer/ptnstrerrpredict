@@ -6,6 +6,7 @@ from time import time
 from sklearn.preprocessing import OneHotEncoder
 
 import pickle 
+import tempfile
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
@@ -213,6 +214,17 @@ class cnn:
 		return model
 
 
+	def generate_model_aan_contact_map_1d(c, input_shape, output_shape):
+		model = Sequential()
+		model.add(Dense(15, input_shape=input_shape[1:]))
+		model.add(Flatten())
+		model.add(Dense(output_shape[0] * output_shape[1]))
+		model.add(Reshape(output_shape))
+		model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy', 'mse'])
+		model.summary()
+		return model
+
+
 # Given a set of files storing entry objects and their directory location, return their feature dimensions such as the positional atom types and the bounds for the matrix.
 def load_feature_dimensions(files, fdir = 'ptndata_10H/'):
 	x_min, y_min, z_min, x_max, y_max, z_max = CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, CUBIC_LENGTH_CONSTRAINT, 0, 0, 0
@@ -339,15 +351,17 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 	#
 	y = np.reshape(y, (len(y), len(y[0]), len(y[0])))
 #
-	model = cnn.generate_model_contact_map_1d(input_shape, (NUMBER_OF_AA2, NUMBER_OF_AA2))
-
 	early_stopping = EarlyStopping(patience=5)
 	datasetsize = []
 	loss_train = []
 	loss_test = []
 	rmsd_train = []
 	rmsd_test = []
-	for i in range(1000, 10000, 1000):
+	for i in range(1): #100, 10000, 100
+		i = 1000
+		#model = cnn.generate_model_contact_map_1d(input_shape, (NUMBER_OF_AA2, NUMBER_OF_AA2))
+		model = cnn.generate_model_aan_contact_map_1d(input_shape, (NUMBER_OF_AA2, NUMBER_OF_AA2))
+
 		X = feature_set[:i]
 		y_ = y[:i]
 
@@ -359,42 +373,66 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 		loss_train.append(history.history['loss'][len(history.history['loss']) - 1])
 		loss_test.append(history.history['val_loss'][len(history.history['val_loss']) - 1])
 
-		y_pred_train = model.predict(X_train)
-		y_pred_test = model.predict(X_test)
+		# All samples
+		y_pred = model.predict(X)
 
-		#y_pred = select_region_dm(y_pred, (NUMBER_OF_AA, NUMBER_OF_AA))
-		#y_act = select_region_dm(y_act, (NUMBER_OF_AA, NUMBER_OF_AA))
+		# Training and testing samples separately
+		#y_pred_train = model.predict(X_train)
+		#y_pred_test = model.predict(X_test)
 
 		pca = PCA(n_components=3)
 
-		coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_train]
-		coordinates_act = [geo_distmat_to3d(elem) for elem in y_train]
+		# All samples
+		coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred]
+		coordinates_act = [geo_distmat_to3d(elem) for elem in y_]
 
-		coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_train))]
+		coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_))]
 
-		rmsd_train_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_train)) ]
+		rmsd = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_)) ]
 
-		rmsd_train.append(np.mean(rmsd_train_))
+		# Training samples
+		#coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_train]
+		#coordinates_act = [geo_distmat_to3d(elem) for elem in y_train]
 
-		coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_test]
-		coordinates_act = [geo_distmat_to3d(elem) for elem in y_test]
+		#coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_train))]
 
-		coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_test))]
+		#rmsd_train_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_train)) ]
 
-		rmsd_test_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_test)) ]
+		#rmsd_train.append(np.mean(rmsd_train_))
+
+		# Testing samples
+		#coordinates_pred = [geo_distmat_to3d(elem) for elem in y_pred_test]
+		#coordinates_act = [geo_distmat_to3d(elem) for elem in y_test]
+
+		#coordinates_pred_aligned = [geo_alignpoints(coordinates_act[i], coordinates_pred[i]) for i in range(len(y_test))]
+
+		#rmsd_test_ = [sqrt(mean_squared_error(coordinates_pred_aligned[i], coordinates_act[i])) for i in range(len(y_test)) ]
 		
-		rmsd_test.append(np.mean(rmsd_test_))
+		#rmsd_test.append(np.mean(rmsd_test_))
 
-	if True:
+	if False:
 		plt.plot(datasetsize, loss_train)
 		plt.plot(datasetsize, loss_test)
 		plt.plot(datasetsize, rmsd_train)
 		plt.plot(datasetsize, rmsd_test)
 		plt.legend(['Train MSE Loss', 'Validation MSE Loss', 'Train RMSD', 'Validation RMSD'], loc='upper right')
-		plt.title('1-D CNN Metrics vs Data set size for MDS')
+		plt.title('1-D CNN Metrics vs data set size for MDS')
 		plt.ylabel('MSE Loss (A^2), RMSD (A)')
 		plt.xlabel('Data set size')
 		plt.savefig('figures/ptndata_1dconv_summary_mds.png')
+		plt.show()
+		plt.clf()
+
+	if False:
+		plt.plot(datasetsize, loss_train)
+		plt.plot(datasetsize, loss_test)
+		plt.plot(datasetsize, rmsd_train)
+		plt.plot(datasetsize, rmsd_test)
+		plt.legend(['Train MSE Loss', 'Validation MSE Loss', 'Train RMSD', 'Validation RMSD'], loc='upper right')
+		plt.title('1-D ANN Metrics vs data set size for MDS')
+		plt.ylabel('MSE Loss (A^2), RMSD (A)')
+		plt.xlabel('Data set size')
+		plt.savefig('figures/ptndata_1dann_summary_mds.png')
 		plt.show()
 		plt.clf()
 
@@ -410,7 +448,33 @@ def conv1d_primary_seq_dm(fdir='ptndata_1dconv/'):
 		plt.savefig('figures/ptndata_1dconv_abs_loss.png')
 		plt.clf()
 
-	return model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test
+	if False:
+		data = pd.DataFrame({'abs_loss': [history.history['loss']], 'abs_val_loss': [history.history['val_loss']]})
+		data.to_csv('figures/ptndata_1dconv_ann.csv')
+		plt.plot(history.history['loss'])
+		plt.plot(history.history['val_loss'])
+		plt.title('1-D CNN Contact Map Metric ANN')
+		plt.ylabel('MSE Loss (A^2)')
+		plt.xlabel('Epoch')
+		plt.legend(['Training set', 'Validation set'], loc='upper left')
+		plt.savefig('figures/ptndata_1dann_abs_loss.png')
+		plt.clf()
+
+	# For measuring the data size affects on the 1D metrics
+	#return model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test
+
+	min_rmsd_indx = np.argmin(rmsd)
+	max_rmsd_indx = np.argmax(rmsd)
+
+	min_rmsd_file = files[min_rmsd_indx]
+	max_rmsd_file = files[max_rmsd_indx]
+
+	min_rmsd = rmsd[min_rmsd_indx]
+	max_rmsd = rmsd[max_rmsd_indx]
+
+
+	# For measuring best/worst case scenario
+	return model, history, files, rmsd, min_rmsd_indx, max_rmsd_indx, min_rmsd_file, max_rmsd_file, min_rmsd, max_rmsd, coordinates_pred_aligned, coordinates_act
 
 
 def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
@@ -487,6 +551,27 @@ def conv3d_tertiary_seq_rosetta_mse_dm(fdir='ptndata_10H/'):
 	plt.savefig('figures/1crnAH10_dm_abs_loss.png')
 	plt.clf()
 
+
+# This function exports the protein as a .pdb file with 
+def export(coords, file = None):
+	atom_number = 1
+	amino_acid_number = 1
+	# If file is not assigned, generate temp file
+	if file == None:
+		file = tempfile.NamedTemporaryFile(dir = 'sample_ptn', mode = 'w+', suffix='.pdb').name
+	# Open file and loop through all of the atoms in the protein and print all of their information to the file.
+	# ethan: only write PDB files after structure is updated from the subsetting done, i.e. range of aa or chains
+	with open(file, "w+") as f:	
+		for atom_coords in coords:
+			x = atom_coords[0]
+			y = atom_coords[1]
+			z = atom_coords[2]
+			out = 'ATOM   %4d %-4s %3s %1s%4s    %8.3f%8.3f%8.3f  1.00  1.00           %s  \n' % (atom_number, 'CA', 'THR', 'A',amino_acid_number, x, y, z, 'CA')		
+			f.write(out)		
+			atom_number += 1
+		amino_acid_number += 1
+	return file
+
 cnn = cnn()
-conv3d_tertiary_seq_rosetta_mse_dm('ptndata_10H/')
-#model, history, datasetsize, loss_train, loss_test, rmsd_train, rmsd_test = conv1d_primary_seq_dm()
+#conv3d_tertiary_seq_rosetta_mse_dm('ptndata_10H/')
+model, history, files, rmsd, min_rmsd_indx, max_rmsd_indx, min_rmsd_file, max_rmsd_file, min_rmsd, max_rmsd, coordinates_pred_aligned, coordinates_act = conv1d_primary_seq_dm()
